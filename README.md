@@ -72,6 +72,10 @@ Open [http://localhost:3000](http://localhost:3000). The human interface works i
 
 The full submission checklist, eval prompts, security audit, and demo sequence are in [docs/SUBMISSION_SOURCE_OF_TRUTH.md](docs/SUBMISSION_SOURCE_OF_TRUTH.md). Product clarity was also stress-tested through a [144-journey synthetic user audit](docs/SYNTHETIC_USER_AUDIT.md) and a [1,920-pass synthetic judge audit](docs/JUDGE_PANEL_AUDIT.md). These are structured internal tests, not real-user or real-judge research.
 
+## Interaction design
+
+The one-screen product stage uses adapted MIT-licensed Motion Primitives patterns for the animated route selection, staggered path entrance, pointer-following spotlight, card tilt, and spring modal transitions. The path backdrop is a custom SVG generated with Haikei's Layered Waves generator. The five-color system follows Realtime Colors' text, background, primary, secondary, and accent roles. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
+
 ## Verify the build
 
 ```bash
