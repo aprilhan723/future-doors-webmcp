@@ -6,22 +6,22 @@ When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) 
 
 ## Hard deadline
 
-- Submit by **September 3, 2026 at 1:00 PM PT** (**September 4 at 5:00 AM KST**).
+- Submit by **Thursday, September 3, 2026 at 1:00 PM PT** (**Friday, September 4 at 5:00 AM KST**).
 - After the deadline, do not change the Devpost entry, submitted repository, or live deployment during judging. Continue only in a separate fork if needed.
 
 ## Required submission package
 
-- [ ] Working live URL that judges can open in ChatGPT's in-app browser or Chrome with WebMCP enabled.
-- [ ] Public GitHub/GitLab/Bitbucket repository.
+- [x] Working live URL: [future-doors-webmcp.vercel.app](https://future-doors-webmcp.vercel.app/).
+- [x] Public repository: [github.com/aprilhan723/future-doors-webmcp](https://github.com/aprilhan723/future-doors-webmcp).
 - [x] Open-source license file: MIT.
-- [ ] Repository setup and testing instructions that work from a clean checkout.
+- [x] Repository setup and testing instructions that work from a clean checkout.
 - [ ] English description explaining:
   - why Future Doors is a strong fit for WebMCP;
   - how the human experience becomes better;
   - what the person and agent can do together that was difficult before;
   - how WebMCP is implemented.
 - [ ] Public YouTube demo, under three minutes, with audio showing the product working and explaining WebMCP.
-- [ ] Clear record that the project and its WebMCP work were created during the submission period, or a dated explanation of new work versus pre-existing work.
+- [x] Clear record that the project and its WebMCP work were created during the submission period: the scaffold starts August 28 and the product/WebMCP commit is dated August 29.
 
 ## Official judging criteria
 
