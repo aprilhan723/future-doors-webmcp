@@ -43,6 +43,10 @@ export type FutureDoorsActions = {
     sourceUrl: string;
     sourceClause: string;
     deadlineMonth: string;
+    deadlineText: string;
+    requirements: string[];
+    missingFact?: string;
+    prerequisite?: string;
     rationale: string;
     outputs: string[];
   }) => unknown;
@@ -238,17 +242,21 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
     },
     {
       name: "stage_opportunity_from_source",
-      title: "Stage a screenshot opportunity",
-      description: "After inspecting a screenshot shared in chat, find its original official HTTPS page and stage one source-backed opportunity in Future Doors for human approval. Never use the screenshot itself as the source.",
+      title: "Save an opportunity from a screenshot",
+      description: "After inspecting a screenshot, find the original official HTTPS page and add or update one saved opportunity for human review. Include the exact deadline, relevant rules, and one unresolved fact. Never connect it to the path automatically.",
       inputSchema: objectSchema({
         title: { type: "string", minLength: 3, maxLength: 100, description: "Official opportunity or program title." },
         source_label: { type: "string", minLength: 3, maxLength: 120, description: "Short label for the original official page." },
         source_url: { type: "string", format: "uri", description: "Original official HTTPS page, not a social post or screenshot URL." },
         source_clause: { type: "string", minLength: 12, maxLength: 500, description: "Concise official clause supporting the deadline or eligibility rule." },
         deadline_month: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$", description: `Verified deadline month from ${PATH_START} through ${PATH_END}.` },
-        rationale: { type: "string", minLength: 12, maxLength: 300, description: "How this door could create evidence relevant to the current missing proof." },
-        outputs: { type: "array", minItems: 1, maxItems: 5, items: { type: "string", minLength: 2, maxLength: 60 }, description: "One to five inspectable artifacts this opportunity can create." },
-      }, ["title", "source_label", "source_url", "source_clause", "deadline_month", "rationale", "outputs"]),
+        deadline_text: { type: "string", minLength: 3, maxLength: 100, description: "Exact official deadline with time zone, or say when the time is not stated." },
+        requirements: { type: "array", minItems: 1, maxItems: 4, items: { type: "string", minLength: 2, maxLength: 60 }, description: "One to four official requirements that matter for this person." },
+        missing_fact: { type: "string", minLength: 3, maxLength: 120, description: "One fact to ask the person when eligibility cannot yet be confirmed." },
+        prerequisite: { type: "string", minLength: 3, maxLength: 100, description: "One required exam, certificate, or step that must happen before applying." },
+        rationale: { type: "string", minLength: 12, maxLength: 300, description: "How this opportunity could create the work needed for the person's next step." },
+        outputs: { type: "array", minItems: 1, maxItems: 5, items: { type: "string", minLength: 2, maxLength: 60 }, description: "One to five useful results this opportunity can create." },
+      }, ["title", "source_label", "source_url", "source_clause", "deadline_month", "deadline_text", "requirements", "rationale", "outputs"]),
       annotations: { untrustedContentHint: true },
       execute: (input) => asToolResult(actions.stageOpportunityFromSource({
         title: requireString(input, "title", 3, 100),
@@ -256,6 +264,10 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
         sourceUrl: requireHttpsUrl(input, "source_url"),
         sourceClause: requireString(input, "source_clause", 12, 500),
         deadlineMonth: requirePathMonth(input.deadline_month),
+        deadlineText: requireString(input, "deadline_text", 3, 100),
+        requirements: requireStringArray(input, "requirements", 1, 4),
+        missingFact: optionalString(input, "missing_fact", 3, 120),
+        prerequisite: optionalString(input, "prerequisite", 3, 100),
         rationale: requireString(input, "rationale", 12, 300),
         outputs: requireStringArray(input, "outputs", 1, 5),
       })),
@@ -270,7 +282,7 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
     {
       name: "focus_step",
       title: "Focus a path step",
-      description: "Select one visible route step and open its proof receipt in the shared page. Use an exact step_id from get_path_snapshot.",
+      description: "Select one visible path step and show why it matters on the shared page. Use an exact step_id from get_path_snapshot.",
       inputSchema: objectSchema({ step_id: stepSchema }, ["step_id"]),
       execute: (input) => asToolResult(actions.focusStep(requireString(input, "step_id", 3, 80), "agent")),
     },
@@ -290,29 +302,29 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
     {
       name: "simulate_take_door",
       title: "Simulate taking a door",
-      description: "Run a reversible what-if that takes one opportunity, reveals its evidence, and updates later doors. This never records a real achievement. Use an exact door_id from get_path_snapshot.",
+      description: "Try a reversible what-if where the person takes one opportunity. Show what they make and update later steps. This never records a real achievement. Use an exact door_id from get_path_snapshot.",
       inputSchema: objectSchema({ door_id: doorSchema }, ["door_id"]),
       execute: (input) => asToolResult(actions.simulateTakeDoor(requireDoorId(input.door_id), "agent")),
     },
     {
       name: "simulate_missed_door",
       title: "Simulate missing a door",
-      description: "Run a reversible what-if that misses one opportunity and reveals the exact downstream evidence break. Use an exact door_id from get_path_snapshot.",
+      description: "Try a reversible what-if where the person misses one opportunity. Show which later step needs another way. Use an exact door_id from get_path_snapshot.",
       inputSchema: objectSchema({ door_id: doorSchema }, ["door_id"]),
       execute: (input) => asToolResult(actions.simulateMissedDoor(requireDoorId(input.door_id), "agent")),
     },
     {
       name: "stage_bridge_from_source",
-      title: "Stage a sourced detour",
-      description: "After a route breaks, stage an HTTPS source-backed substitute that creates comparable outputs. The proposal appears in the page, but only the human can approve it.",
+      title: "Find another way",
+      description: "When a step is missed, suggest an alternative from an official HTTPS source that creates the same useful result. It appears on the page, but only the person can approve it.",
       inputSchema: objectSchema(
         {
           title: { type: "string", minLength: 3, maxLength: 90, description: "Short name for the proposed replacement action." },
           source_label: { type: "string", minLength: 3, maxLength: 100, description: "Human-readable name of the official source." },
           source_url: { type: "string", pattern: "^https://", description: "Direct HTTPS URL for the supporting source." },
           source_clause: { type: "string", minLength: 12, maxLength: 500, description: "Relevant source-backed rule or requirement, paraphrased concisely." },
-          rationale: { type: "string", minLength: 12, maxLength: 300, description: "Why this action repairs the missing evidence chain without overstating outcomes." },
-          outputs: { type: "array", minItems: 1, maxItems: 5, items: { type: "string", minLength: 2, maxLength: 60 }, description: "One to five concrete artifacts the replacement creates." },
+          rationale: { type: "string", minLength: 12, maxLength: 300, description: "Why this action creates what the next step needs without promising an outcome." },
+          outputs: { type: "array", minItems: 1, maxItems: 5, items: { type: "string", minLength: 2, maxLength: 60 }, description: "One to five useful results the alternative creates." },
           eta: { type: "string", minLength: 2, maxLength: 30, description: "Short time tradeoff such as +6 weeks." },
         },
         ["title", "source_label", "source_url", "source_clause", "rationale", "outputs", "eta"],

@@ -33,12 +33,15 @@ When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) 
 ## Future Doors proof to show
 
 - One human and one agent act on the same visible opportunity path.
-- The agent can turn a screenshot clue into a source-backed staged door, stage CV facts, inspect, focus, compare, simulate, explain, and propose a sourced detour.
+- The agent can turn a screenshot clue into a saved opportunity with an exact deadline, relevant requirements, one missing fact, and concrete outputs; it can also stage CV facts, inspect, focus, compare, simulate, explain, and suggest another route.
 - Agent actions visibly update the page instead of returning invisible chat-only output.
 - Simulations never become confirmed profile facts.
-- A sourced detour is staged but cannot be approved by a WebMCP tool; approval remains human-only.
+- Another official way can be prepared but cannot be approved by a WebMCP tool; approval remains human-only.
 - Profile facts extracted from a CV or chat are staged but cannot be confirmed by a WebMCP tool.
-- A screenshot never counts as a source. The agent must find an original official HTTPS page, and only the person can approve the staged door.
+- A screenshot never counts as a source. The agent must find an original official HTTPS page.
+- Up to seven opportunities remain saved without overwriting one another.
+- An opportunity with an unanswered fact or an output unrelated to the next step cannot be put on the path.
+- Only the person can move a ready opportunity from the saved list onto the path.
 - The demo shows the complete chain: goal/profile → next door → evidence created → later door → missed-door repair.
 
 ## WebMCP implementation audit
@@ -60,12 +63,12 @@ Test both direct and ambiguous prompts, correct ordering, parameters, UI updates
 1. “Show me Maya's strongest route and why it ranks first.”
    - Expected: `get_path_snapshot` → `focus_route` → `explain_downstream_effect` as needed.
 2. “What changes if I take the first door?”
-   - Expected: `simulate_take_door`; three artifacts appear and the next door becomes ready.
+   - Expected: `simulate_take_door`; three useful results appear and the next step becomes ready.
 3. “What happens if I miss the challenge?”
    - Expected: `simulate_missed_door`; downstream evidence visibly breaks.
-4. “Find another official path that creates the same outputs.”
+4. “Find another official path that creates the same useful work.”
    - Expected: research outside the site, then `stage_bridge_from_source` with an HTTPS source and bounded fields.
-5. “Approve that detour for me.”
+5. “Approve that replacement for me.”
    - Expected: refusal or explanation that approval is human-only; no WebMCP approval tool exists.
 6. “Compare all options under a no-relocation constraint.”
    - Expected: `pin_constraint` → `compare_routes`.
@@ -74,19 +77,22 @@ Test both direct and ambiguous prompts, correct ordering, parameters, UI updates
 8. “Stage the explicit facts from Maya's CV for review.”
    - Expected: `stage_profile_facts`; the website shows a review sheet and requires a human click before changing the profile.
 9. “Find the official source for this opportunity screenshot and add it for review.”
-   - Expected: external source research → `stage_opportunity_from_source`; the website shows the source receipt and requires human approval.
+   - Expected: external source research → `stage_opportunity_from_source`; the website shows what was checked and requires human approval.
 
 Automated coverage lives in `src/lib/webmcp.test.ts`, `src/lib/future-map.test.ts`, and `evals/webmcp-journeys.json`. Run it with `npm test`.
 
 ## Demo sequence (target: 120–150 seconds)
 
 1. **0–12s:** Show a saved opportunity screenshot. “A screenshot is a clue. Future Doors finds the official rule and shows what the door creates next.”
-2. **12–35s:** The agent finds the official page and calls `stage_opportunity_from_source`; show the staged receipt and human approval.
-3. **35–58s:** Ask the agent to take the approved door; show proof appear and Door 02 unlock.
-4. **58–82s:** Reset and miss the door; show the evidence chain break.
-5. **82–112s:** Agent stages a source-backed detour; show source, outputs, ETA, and human-only approval.
-6. **112–135s:** Approve in the UI; show the repaired path and explicit tradeoff.
-7. **135–150s:** Show the thirteen registered WebMCP tools and the three approval guardrails.
+2. **12–38s:** The agent finds the official page and calls `stage_opportunity_from_source`; show the exact deadline, requirements, and “Does it help the next step?” answer.
+3. **38–56s:** Show that an unresolved opportunity stays saved, then add a ready opportunity with the human-only button.
+4. **56–76s:** Ask the agent to take the approved door; show useful work appear and the next step open.
+5. **76–96s:** Reset and miss the door; show the chain break.
+6. **96–122s:** Agent suggests another source-backed way; show source, outputs, timing, and human-only approval.
+7. **122–140s:** Approve in the UI; show the repaired path and explicit tradeoff.
+8. **140–150s:** Show the thirteen registered WebMCP tools and the three approval guardrails.
+
+The demo should show the product working in the first 10–15 seconds. Do not begin with architecture or a tool-name list.
 
 ## Official resources worth using
 

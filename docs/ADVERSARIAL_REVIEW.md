@@ -8,9 +8,9 @@ Do not become another CV-to-job matcher. A direct WebMCP Career Copilot already 
 
 Future Doors owns a narrower loop:
 
-**screenshot clue → official source receipt → human-approved door → evidence created → next door → source-backed repair if missed**
+**screenshot clue → official page → saved opportunity → missing fact or ready → human-added path → useful work → next step → another route if missed**
 
-The distinctive object is a counterfactual proof graph, not a recommendation list. It answers: “If this door closes, which inspectable evidence disappears, and what verified route can recreate it?”
+The distinctive object is a path that updates when plans change, not a recommendation list. It answers: “If this door closes, what does my next step lose, and which verified alternative can recreate it?”
 
 ## Five skeptical reviewers
 
@@ -21,6 +21,10 @@ The distinctive object is a counterfactual proof graph, not a recommendation lis
 | Opportunity seeker | Is it clear where programs come from? | Pass: Add a door explains screenshot → official source → approval. | A staged screenshot journey should be the first demo, not hidden in the tools list. |
 | Trust reviewer | Can untrusted content silently change the path? | Pass: external text is marked untrusted; official HTTPS source required; profile, new-door, and detour approvals are human-only. | Official-source quality still depends on the browsing agent and human review. |
 | Small-laptop user | Is the map readable without scrolling or overlap? | Pass at 760×620, 1000×620, and 1280×720 CSS pixels; no page overflow, card overflow, overlap, or console issues. | Mobile portrait is not the judging target. |
+
+## Larger synthetic population
+
+A 144-journey structured stress test found three repeated failures in the earlier build: one screenshot overwrote another, unresolved eligibility had no safe waiting state, and an unrelated opportunity could inherit a fixed next step. The current build addresses all three with a seven-item saved list, one-missing-fact state, and a deterministic check that only concrete public product outputs can enter the current product path. This is synthetic testing, not a claim of real-user demand; details are in `docs/SYNTHETIC_USER_AUDIT.md`.
 
 ## Official-criteria preflight
 

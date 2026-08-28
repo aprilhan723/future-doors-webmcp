@@ -28,7 +28,9 @@
             "source_url": "https://webmcp.devpost.com/",
             "source_clause": "Submissions require a working URL, public repository, and public demo video.",
             "deadline_month": "2026-09",
-            "rationale": "The required artifacts directly create public proof of product work.",
+            "deadline_text": "September 3, 2026 at 1:00 PM PT",
+            "requirements": ["Working live URL", "Public code repository", "Public demo video under three minutes"],
+            "rationale": "The required work gives this person a live product people can review.",
             "outputs": ["Live product", "Public code", "Demo narrative"]
           }
         }
@@ -53,7 +55,7 @@
     },
     {
       "id": "miss-and-stage-detour",
-      "prompt": "Show what breaks if Maya misses the challenge, then stage a sourced replacement that creates the same proof.",
+      "prompt": "Show what changes if Maya misses the challenge, then save an official alternative that creates the same public work.",
       "expectedCall": [
         { "functionName": "simulate_missed_door", "arguments": { "door_id": "ship-challenge" } },
         {
@@ -62,8 +64,8 @@
             "title": "Independent Public Demo Sprint",
             "source_label": "WebMCP Challenge requirements",
             "source_url": "https://webmcp.devpost.com/rules",
-            "source_clause": "A working URL, public repository, and demo video form a public proof bundle.",
-            "rationale": "This recreates comparable evidence without claiming the missed award.",
+            "source_clause": "A working URL, public repository, and demo video are required.",
+            "rationale": "This creates the same useful public work without claiming the missed award.",
             "outputs": ["Live app", "Public repository", "Demo video"],
             "eta": "+6 weeks"
           }
@@ -80,7 +82,7 @@
     },
     {
       "id": "explain-evidence-effect",
-      "prompt": "Explain how the public proof bundle affects the next door.",
+      "prompt": "Explain how the public work affects the next step.",
       "expectedCall": [
         { "functionName": "focus_route", "arguments": { "route_id": "ship" } },
         { "functionName": "get_path_snapshot", "arguments": {} },

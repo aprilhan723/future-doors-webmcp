@@ -8,22 +8,25 @@ Job sites recommend openings. Career explorers compare roles and skills. Credent
 
 **take one opportunity → create work you can show → become ready for the next move**
 
-The person can share an Instagram post, LinkedIn post, or poster screenshot in ChatGPT. The agent finds the original official page, extracts the rule, deadline, and inspectable outputs, then stages a door in the website. A screenshot is never treated as a source, and the path changes only after the person approves the official receipt.
+The person can share an Instagram post, LinkedIn post, or poster screenshot in ChatGPT. The agent finds the original official page, exact deadline, relevant rules, and concrete outputs, then adds it to a seven-item review list. A screenshot is never treated as a source.
 
-If the first door closes, the same shared agent can propose a source-backed detour that creates comparable useful outputs. That repair also requires human approval.
+Each saved opportunity is shown as **1 detail needed**, **ready to add**, **saved for later**, or **on your path**. A missing fact blocks connection. An opportunity whose outputs do not help the fixed next step remains saved instead of creating a false path. Only the person can put a reviewed opportunity on the path.
+
+If the first door closes, the same shared agent can find another official way to create comparable useful work. Only the person can use that replacement.
 
 ## One-screen story
 
-1. A screenshot becomes a reviewable door only after the agent finds its official source.
-2. Confirmed profile facts, a goal, and a missing proof make the route explainable.
-3. **Take door** shows evidence moving forward and the next door becoming reachable.
-4. **Miss it** shows exactly where the chain breaks.
-5. The agent proposes a sourced substitute; only the person can approve it.
-6. The repaired path shows the tradeoff: comparable proof, six weeks later.
+1. A screenshot becomes a saved opportunity only after the agent finds its official source.
+2. The page shows the exact deadline, the rules that matter, one missing fact, and whether the result helps the next step.
+3. Up to seven opportunities stay saved without overwriting one another.
+4. Confirmed profile facts, a goal, and the work each step produces make the route explainable.
+5. **I take it** shows useful work moving forward and the next step becoming reachable.
+6. **I miss it** shows exactly where the chain breaks.
+7. The agent proposes another official way; only the person can approve it.
 
 Simulations never become profile facts. Paths never claim to predict acceptance or hiring.
 
-Official prerequisites and modeled signals are visually distinct. A required exam or license can become an earlier prerequisite door; a merely preferred credential never opens a door by itself.
+A required exam or license can appear as an earlier “Do this first” step. A merely preferred credential never opens a door by itself.
 
 ## WebMCP tools
 
@@ -43,7 +46,7 @@ The page progressively registers thirteen tools against the same visible path:
 12. `explain_downstream_effect`
 13. `reset_path`
 
-An agent can stage explicit CV facts and a screenshot-derived opportunity for review, but no WebMCP tool can confirm profile facts, approve a new door, or approve a detour. Those actions exist only in the human interface.
+An agent can prepare explicit CV facts and a screenshot-derived opportunity for review, but no WebMCP tool can confirm profile facts, approve a new door, or approve another way. Those actions exist only in the human interface.
 
 ## Run locally
 
@@ -59,13 +62,15 @@ Open [http://localhost:3000](http://localhost:3000). The human interface works i
 ## Judge test path
 
 1. Share an opportunity screenshot in chat and ask the agent to find the original official source and add it for review.
-2. Confirm that the website shows a staged receipt, then approve the door in the human interface.
-3. Ask what changes if Maya takes the first door.
-4. Reset, then ask what breaks if Maya misses it.
-5. Ask the agent to stage a source-backed detour that creates comparable proof.
-6. Try asking the agent to approve either proposal. It cannot: approval is deliberately human-only.
+2. Confirm that the website shows the exact deadline, relevant requirements, and whether one detail is still needed.
+3. Confirm that unrelated or unresolved opportunities cannot be added to the path.
+4. Add a ready opportunity in the human interface.
+5. Ask what changes if Maya takes the first door.
+6. Reset, then ask what breaks if Maya misses it.
+7. Ask the agent to prepare another official way that creates comparable work.
+8. Try asking the agent to approve either proposal. It cannot: approval is deliberately human-only.
 
-The full submission checklist, eval prompts, security audit, and demo sequence are in [docs/SUBMISSION_SOURCE_OF_TRUTH.md](docs/SUBMISSION_SOURCE_OF_TRUTH.md).
+The full submission checklist, eval prompts, security audit, and demo sequence are in [docs/SUBMISSION_SOURCE_OF_TRUTH.md](docs/SUBMISSION_SOURCE_OF_TRUTH.md). Product clarity was also stress-tested through a [144-journey synthetic user audit](docs/SYNTHETIC_USER_AUDIT.md) and a [1,920-pass synthetic judge audit](docs/JUDGE_PANEL_AUDIT.md). These are structured internal tests, not real-user or real-judge research.
 
 ## Verify the build
 

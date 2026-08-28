@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Future Doors — Turn one opportunity into a path",
+  title: "Future Doors — From a saved post to a real plan",
   description:
-    "A human-agent career path that shows what each opportunity creates, what you can try next, and how to reroute when a door closes.",
+    "Share an opportunity screenshot, check the official rules, and see what to do now and what it can open next.",
   openGraph: {
     title: "Future Doors",
-    description: "See your best next opportunity, what it creates, and what you can try next.",
+    description: "Turn a saved opportunity into a step-by-step plan you can check and change.",
     type: "website",
   },
 };

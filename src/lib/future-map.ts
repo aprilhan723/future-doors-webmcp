@@ -72,14 +72,28 @@ export type BridgeProposal = {
 };
 
 export type OpportunityCandidate = {
-  state: "none" | "staged" | "approved";
+  id: string;
+  state: "review" | "connected";
   title: string;
   rationale: string;
   sourceLabel: string;
   sourceUrl: string;
   sourceClause: string;
   deadlineMonth: string;
+  deadlineText: string;
+  requirements: string[];
+  missingFact?: string;
+  prerequisite?: string;
   outputs: string[];
+  checkedAt: string;
+};
+
+export type OpportunityReview = {
+  status: "needs_fact" | "ready" | "saved_only" | "connected";
+  label: string;
+  canConnect: boolean;
+  nextAction: string;
+  pathAnswer: string;
 };
 
 export type Activity = {
@@ -96,7 +110,7 @@ export type FutureDoorsState = {
   selectedNodeId: string;
   scenario: Scenario;
   bridge: BridgeProposal;
-  opportunity: OpportunityCandidate;
+  opportunities: OpportunityCandidate[];
   pinnedConstraints: string[];
   activity: Activity[];
   replayToken: number;
@@ -140,22 +154,22 @@ export function requirePathMonth(value: unknown) {
 
 export const statusLabels: Record<NodeStatus, string> = {
   available: "OPEN NOW",
-  ready: "READY TO TRY",
-  checking: "CHECK ELIGIBILITY",
+  ready: "OPEN NEXT",
+  checking: "CHECK FIRST",
   future: "OPENS LATER",
-  locked: "NEEDS PROOF",
+  locked: "NOT OPEN YET",
   expired: "MISSED",
-  blocked: "PATH BROKEN",
-  simulated: "SIMULATED",
-  strengthened: "STRONGER",
-  destination: "DESTINATION",
+  blocked: "NEEDS ANOTHER WAY",
+  simulated: "DONE IN TRY-OUT",
+  strengthened: "CLOSER",
+  destination: "GOAL",
 };
 
 export const edgeLabels: Record<EdgeType, string> = {
-  official: "OFFICIAL REQUIREMENT",
-  creates: "CREATES EVIDENCE",
-  signal: "STRENGTHENS — NOT A GUARANTEE",
-  blocked: "MISSING EVIDENCE",
+  official: "OPENS THE NEXT STEP",
+  creates: "MAKES WHAT THE NEXT STEP NEEDS",
+  signal: "HELPS — NEVER GUARANTEES",
+  blocked: "THE NEXT STEP IS MISSING SOMETHING",
 };
 
 export const initialState: FutureDoorsState = {
@@ -172,7 +186,7 @@ export const initialState: FutureDoorsState = {
     workAuthorization: "Needs confirmation by country",
     strengths: ["Fast prototyping", "Product storytelling"],
     credentials: [],
-    gap: "Public proof of work",
+    gap: "A public product people can review",
     constraints: ["≤ 10 hrs / week", "Low or no cost", "Remote-friendly"],
   },
   selectedMonth: "2026-08",
@@ -182,30 +196,21 @@ export const initialState: FutureDoorsState = {
   bridge: {
     state: "none",
     title: "Independent Public Demo Sprint",
-    rationale: "Recreate the missing proof bundle without claiming the missed award.",
+    rationale: "Create the same useful work without claiming the missed award.",
     sourceLabel: "WebMCP Challenge submission requirements",
     sourceUrl: "https://webmcp.devpost.com/",
-    sourceClause: "A working URL, public code repository, and public demo video are required submission artifacts.",
+    sourceClause: "A working URL, public code repository, and public demo video are required.",
     outputs: ["Live app", "Public repository", "Demo video"],
     eta: "+6 weeks",
   },
-  opportunity: {
-    state: "none",
-    title: "",
-    rationale: "",
-    sourceLabel: "",
-    sourceUrl: "",
-    sourceClause: "",
-    deadlineMonth: "2026-08",
-    outputs: [],
-  },
+  opportunities: [],
   pinnedConstraints: ["≤ 10 hrs / week", "Low or no cost", "Remote-friendly"],
   activity: [
     {
       id: "seed-route",
       actor: "system",
       label: "Three routes compiled",
-      detail: "Opportunities are connected by the evidence they create.",
+      detail: "Each step creates what the next step needs.",
     },
   ],
   replayToken: 0,
@@ -230,15 +235,65 @@ export function formatMonth(date: string) {
   }).format(new Date(`${date}-01T00:00:00Z`));
 }
 
+const SHOWABLE_PRODUCT_WORK = [
+  /\blive (app|site|product|demo)\b/i,
+  /\bpublic (code|repo|repository|project|demo|case study|portfolio)\b/i,
+  /\b(product|project) (demo|prototype|case study|launch|walkthrough)\b/i,
+  /\bworking (app|site|prototype|product)\b/i,
+  /\b(case study|portfolio|demo video|demo narrative|recorded demo)\b/i,
+];
+
+export function reviewOpportunity(candidate: OpportunityCandidate): OpportunityReview {
+  if (candidate.state === "connected") {
+    return {
+      status: "connected",
+      label: "ON YOUR PATH",
+      canConnect: true,
+      nextAction: "See it on your path",
+      pathAnswer: "Yes — you chose to use this opportunity on the current path.",
+    };
+  }
+  if (candidate.missingFact?.trim()) {
+    return {
+      status: "needs_fact",
+      label: "1 DETAIL NEEDED",
+      canConnect: false,
+      nextAction: `Answer: ${candidate.missingFact}`,
+      pathAnswer: "Not yet — one detail about you is still missing.",
+    };
+  }
+  if (candidate.outputs.some((item) => SHOWABLE_PRODUCT_WORK.some((pattern) => pattern.test(item)))) {
+    return {
+      status: "ready",
+      label: "READY TO ADD",
+      canConnect: true,
+      nextAction: "Review and add it to your path",
+      pathAnswer: "Yes — it creates work you can show at the next step.",
+    };
+  }
+  return {
+    status: "saved_only",
+    label: "SAVED FOR LATER",
+    canConnect: false,
+    nextAction: "Keep it saved, but do not add it to this path",
+    pathAnswer: "Not on this path — its result does not support the next step.",
+  };
+}
+
+export function getConnectedOpportunity(state: FutureDoorsState) {
+  return state.opportunities.find((candidate) => candidate.state === "connected");
+}
+
 function shipNodes(state: FutureDoorsState): PathNode[] {
   const missed = state.scenario === "miss";
   const rerouted = state.scenario === "rerouted";
   const taken = state.scenario === "take";
   const challengeMissed = missed || rerouted;
-  const imported = state.opportunity.state === "approved";
-  const deadlineMonth = imported ? state.opportunity.deadlineMonth : "2026-08";
-  const opportunityTitle = imported ? state.opportunity.title : "WebMCP Challenge";
-  const opportunityOutputs = imported ? state.opportunity.outputs : ["Live product", "Public code", "Demo narrative"];
+  const connected = getConnectedOpportunity(state);
+  const imported = Boolean(connected);
+  const deadlineMonth = connected?.deadlineMonth ?? "2026-08";
+  const opportunityTitle = connected?.title ?? "WebMCP Challenge";
+  const opportunityOutputs = connected?.outputs ?? ["Live product", "Public code", "Demo narrative"];
   const challengeExpired = monthNumber(state.selectedMonth) > monthNumber(deadlineMonth) && !taken;
   const hasProof = taken || rerouted;
 
@@ -255,21 +310,21 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       description: taken
         ? "Simulated completion only. No real application fact was added to your profile."
         : challengeMissed || challengeExpired
-          ? "The submission deadline passed, so this route no longer creates its proof bundle."
+          ? "The deadline passed, so this route no longer creates the work needed for the next step."
           : imported
-            ? state.opportunity.rationale
-            : "A live chance to turn product work into public, inspectable evidence.",
-      sourceLabel: imported ? state.opportunity.sourceLabel : "Official WebMCP Challenge",
-      sourceUrl: imported ? state.opportunity.sourceUrl : "https://webmcp.devpost.com/",
-      sourceClause: imported ? state.opportunity.sourceClause : "Submissions require a working URL, public repository, and public demo video.",
+            ? connected?.rationale ?? ""
+            : "A live chance to turn product work into public work you can show.",
+      sourceLabel: imported ? connected?.sourceLabel : "Official WebMCP Challenge",
+      sourceUrl: imported ? connected?.sourceUrl : "https://webmcp.devpost.com/",
+      sourceClause: imported ? connected?.sourceClause : "Submissions require a working URL, public repository, and public demo video.",
       evidence: opportunityOutputs,
       edgeToNext: {
         type: challengeMissed && !rerouted ? "blocked" : "creates",
         label: challengeMissed && !rerouted
-          ? "PROOF NOT CREATED"
+          ? "NEEDED WORK NOT CREATED"
           : challengeMissed && rerouted
-            ? "BYPASSED BY APPROVED BRIDGE"
-            : "CREATES 3 PROOF SIGNALS",
+            ? "REPLACED BY ANOTHER WAY YOU APPROVED"
+            : "CREATES 3 USEFUL RESULTS",
       },
     },
     rerouted
@@ -278,7 +333,7 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
           routeId: "ship",
           stage: 2,
           kind: "bridge",
-          eyebrow: "AGENT BRIDGE · YOU APPROVED",
+          eyebrow: "ANOTHER WAY · YOU APPROVED",
           title: state.bridge.title,
           date: state.bridge.eta,
           status: "available",
@@ -287,26 +342,26 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
           sourceUrl: state.bridge.sourceUrl,
           sourceClause: state.bridge.sourceClause,
           evidence: state.bridge.outputs,
-          edgeToNext: { type: "creates", label: "REPAIRS PUBLIC PROOF" },
+          edgeToNext: { type: "creates", label: "REPLACES THE MISSING WORK" },
         }
       : {
           id: "ship-proof",
           routeId: "ship",
           stage: 2,
           kind: "evidence",
-          eyebrow: missed ? "BROKEN LINK" : "EVIDENCE CREATED",
-          title: missed ? "Public proof gap" : imported ? `${opportunityTitle} proof` : "Product proof bundle",
-          date: missed ? "No replacement yet" : `${opportunityOutputs.length} inspectable artifact${opportunityOutputs.length === 1 ? "" : "s"}`,
+          eyebrow: missed ? "WHAT IS MISSING" : "WHAT THIS GIVES YOU",
+          title: missed ? "The next step has nothing to review" : imported ? `${opportunityTitle} results` : "A product people can try",
+          date: missed ? "No replacement yet" : `${opportunityOutputs.length} useful result${opportunityOutputs.length === 1 ? "" : "s"}`,
           status: missed ? "blocked" : hasProof ? "simulated" : "locked",
           description: missed
-            ? "Without a live app, public repo, and demo story, the next door lacks the evidence it can inspect."
+            ? "Without a live app, public code, and demo story, the next step has nothing concrete to review."
             : hasProof
-              ? "These artifacts are simulated outputs, not confirmed achievements."
-              : "Complete the first door to create public evidence instead of another profile claim.",
+              ? "These are try-out results, not confirmed achievements."
+              : "Complete the first opportunity to create real work people can review.",
           evidence: missed ? opportunityOutputs.map((item) => `${item} missing`) : opportunityOutputs,
           edgeToNext: {
             type: missed ? "blocked" : "official",
-            label: missed ? "CANNOT VERIFY WORK" : "MAKES WORK INSPECTABLE",
+            label: missed ? "NOTHING TO REVIEW" : "GIVES THE NEXT STEP REAL WORK",
           },
         },
     {
@@ -314,12 +369,12 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       routeId: "ship",
       stage: 3,
       kind: "opportunity",
-      eyebrow: "DOOR 02 · AMPLIFY",
+      eyebrow: "DOOR 02 · SHARE",
       title: "Submit to OpenAI Showcase",
-      date: rerouted ? "Ready after detour" : "After your project is public",
+      date: rerouted ? "Ready after another route" : "After your project is public",
       status: missed ? "blocked" : hasProof ? "ready" : "locked",
       description: missed
-        ? "This path is blocked because there is no public product evidence to present."
+        ? "This path is blocked because there is no public product to present."
         : "Submit a finished project, demo, or workflow. Being featured is never predicted or guaranteed.",
       sourceLabel: "OpenAI Developer Community",
       sourceUrl: "https://developers.openai.com/community",
@@ -337,9 +392,9 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       date: rerouted ? `Target ${state.profile.targetYear} · +6 weeks` : `Target · ${state.profile.targetYear}`,
       status: missed ? "blocked" : hasProof ? "strengthened" : "destination",
       description: missed
-        ? "The destination remains possible, but this route currently has a visible evidence break."
-        : "A direction, not a hiring prediction. The route shows which evidence becomes more credible next.",
-      evidence: ["Shipped product", "Inspectable craft", "Clear product judgment"],
+        ? "The destination remains possible, but one step in this route is missing."
+        : "A direction, not a hiring prediction. The route shows which work can help the next move.",
+      evidence: ["Shipped product", "Work people can review", "Clear product judgment"],
     },
   ];
 }
@@ -360,7 +415,7 @@ function researchNodes(state: FutureDoorsState): PathNode[] {
       sourceUrl: "https://developers.google.com/open-source/gsoc/faq",
       sourceClause: "GSoC is online and global. Applicants must meet age, work-eligibility, newcomer, prior-participation, and location rules.",
       evidence: ["Starter contribution", "Mentor context", "Proposal draft"],
-      edgeToNext: { type: "creates", label: "CREATES APPLICATION PROOF" },
+      edgeToNext: { type: "creates", label: "MAKES A REAL APPLICATION POSSIBLE" },
     },
     {
       id: "research-proposal",
@@ -429,13 +484,13 @@ function communityNodes(state: FutureDoorsState): PathNode[] {
       routeId: "community",
       stage: 2,
       kind: "evidence",
-      eyebrow: "EVIDENCE CREATED",
-      title: "Contribution record",
+      eyebrow: "WHAT THIS GIVES YOU",
+      title: "Work people can review",
       date: "Code + collaboration trail",
       status: "locked",
       description: "A public record of technical judgment, iteration, and collaboration.",
       evidence: ["Merged work", "Maintainer feedback"],
-      edgeToNext: { type: "official", label: "MAKES CONTRIBUTION INSPECTABLE" },
+      edgeToNext: { type: "official", label: "GIVES THE NEXT STEP REAL WORK" },
     },
     {
       id: "community-programs",
@@ -459,7 +514,7 @@ function communityNodes(state: FutureDoorsState): PathNode[] {
       title: state.profile.goal,
       date: `Target · ${state.profile.targetYear}`,
       status: "destination",
-      description: "A community-weighted path built from contribution evidence rather than credentials alone.",
+      description: "A community path built from public contribution rather than credentials alone.",
       evidence: ["Technical trust", "Community practice", "Public collaboration"],
     },
   ];
@@ -485,7 +540,7 @@ export function buildRoutes(state: FutureDoorsState): Route[] {
       label: "SHIP",
       fit: fits.ship,
       eta: state.scenario === "rerouted" ? `${state.profile.targetYear} + 6 weeks` : String(state.profile.targetYear),
-      summary: "Fastest route to public product proof",
+      summary: "Fastest way to build a public product",
       accent: "coral",
       nodes: shipNodes(state),
     },
@@ -495,7 +550,7 @@ export function buildRoutes(state: FutureDoorsState): Route[] {
       label: "CONTRIBUTE",
       fit: fits.community,
       eta: String(state.profile.targetYear),
-      summary: "Build trust through public collaboration",
+      summary: "Build trust through public work",
       accent: "blue",
       nodes: communityNodes(state),
     },
@@ -505,7 +560,7 @@ export function buildRoutes(state: FutureDoorsState): Route[] {
       label: "RESEARCH",
       fit: fits.research,
       eta: String(state.profile.targetYear),
-      summary: "Build depth through a mentored open-source program",
+      summary: "Build depth with a mentor",
       accent: "yellow",
       nodes: researchNodes(state),
     },
@@ -535,12 +590,16 @@ export function requireVisibleStep(state: FutureDoorsState, stepId: unknown) {
 export function downstreamEffect(state: FutureDoorsState, nodeId: string) {
   const node = requireVisibleStep(state, nodeId);
   if (node.status === "blocked" || node.status === "expired") {
-    return `${node.title} cannot create its expected evidence. Every later step in this route is marked for repair, not treated as impossible.`;
+    return `${node.title} cannot create the work the next step needs. Later steps are marked as needing another way—not impossible.`;
   }
   if (node.kind === "evidence" || node.kind === "bridge") {
-    return `${node.title} makes ${node.evidence.join(", ")} inspectable for the next door.`;
+    return `${node.title} gives you ${node.evidence.join(", ")}, which the next step needs.`;
   }
-  return `${node.title} connects forward through ${node.edgeToNext?.label.toLowerCase() ?? "a modeled signal"}. No acceptance or hiring outcome is predicted.`;
+  return `${node.title} helps the next step through ${node.edgeToNext?.label.toLowerCase() ?? "a useful result"}. This does not predict acceptance or hiring.`;
+}
+
+function compactText(value: string, limit = 48) {
+  return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
 }
 
 export function summarizeState(state: FutureDoorsState) {
@@ -566,16 +625,23 @@ export function summarizeState(state: FutureDoorsState) {
     scenario: state.scenario,
     selected: { route: state.selectedRouteId, step: selected.id },
     bridge: state.bridge.state,
-    sourceInbox: state.opportunity.state,
+    savedOpportunities: {
+      count: state.opportunities.length,
+      connected: getConnectedOpportunity(state) ? compactText(getConnectedOpportunity(state)!.title) : null,
+      waiting: state.opportunities
+        .filter((candidate) => candidate.state === "review")
+        .slice(0, 3)
+        .map((candidate) => ({ id: candidate.id, title: compactText(candidate.title), status: reviewOpportunity(candidate).status })),
+    },
     route: {
       id: selectedRoute.id,
       why: selectedRoute.summary,
       eta: selectedRoute.eta,
       steps: selectedRoute.nodes.map((node) => ({
         id: node.id,
-        title: node.title,
+        title: compactText(node.title),
         status: node.status,
-        ...((node.kind === "evidence" || node.kind === "bridge") && node.evidence.length ? { evidence: node.evidence.slice(0, 3) } : {}),
+        ...((node.kind === "evidence" || node.kind === "bridge") && node.evidence.length ? { evidence: node.evidence.slice(0, 3).map((item) => compactText(item, 36)) } : {}),
       })),
     },
     alternatives: routes.filter((route) => route.id !== selectedRoute.id).map((route) => ({
@@ -585,8 +651,9 @@ export function summarizeState(state: FutureDoorsState) {
     })),
     guardrails: [
       "Simulations never update confirmed facts.",
-      "Dotted links never guarantee outcomes.",
-      "Detour approval is human-only.",
+      "saved_items_need_human_approval",
+      "missing_or_unrelated_items_stay_saved",
+      "try_outs_never_confirm_facts",
     ],
   };
 }
