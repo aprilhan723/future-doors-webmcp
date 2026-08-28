@@ -32,6 +32,15 @@ function makeActions(calls: ExpectedCall[]): FutureDoorsActions {
       credentials: proposal.credentials,
       gap: proposal.gap,
     }).filter(([, value]) => value !== undefined))),
+    stageOpportunityFromSource: (proposal) => record("stage_opportunity_from_source", {
+      title: proposal.title,
+      source_label: proposal.sourceLabel,
+      source_url: proposal.sourceUrl,
+      source_clause: proposal.sourceClause,
+      deadline_month: proposal.deadlineMonth,
+      rationale: proposal.rationale,
+      outputs: proposal.outputs,
+    }),
     focusRoute: (routeId) => record("focus_route", { route_id: routeId }),
     focusStep: (stepId) => record("focus_step", { step_id: stepId }),
     movePathClock: (month) => record("move_path_clock", { month }),
@@ -84,6 +93,7 @@ describe("WebMCP contract", () => {
     const readOnly = tools.filter((tool) => tool.annotations?.readOnlyHint).map((tool) => tool.name);
     expect(readOnly).toEqual(["get_path_snapshot", "compare_routes"]);
     expect(byName(tools, "stage_profile_facts").annotations?.untrustedContentHint).toBe(true);
+    expect(byName(tools, "stage_opportunity_from_source").annotations?.untrustedContentHint).toBe(true);
     expect(byName(tools, "stage_bridge_from_source").annotations?.untrustedContentHint).toBe(true);
   });
 
@@ -104,6 +114,15 @@ describe("WebMCP contract", () => {
       outputs: ["Live app"],
       eta: "+2 weeks",
     })).toThrow("[INVALID_SOURCE_URL]");
+    expect(() => byName(tools, "stage_opportunity_from_source").execute({
+      title: "Example program",
+      source_label: "Official program page",
+      source_url: "https://example.com/program",
+      source_clause: "This official clause is long enough.",
+      deadline_month: "August 2027",
+      rationale: "This creates a public artifact relevant to the goal.",
+      outputs: ["Public demo"],
+    })).toThrow("[INVALID_MONTH_FORMAT]");
     expect(calls).toEqual([]);
   });
 });

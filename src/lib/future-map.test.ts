@@ -56,4 +56,20 @@ describe("agent output budgets", () => {
     const output = serializeToolOutput(summarizeRouteComparison(state));
     expect(output.length).toBeLessThanOrEqual(WEBMCP_OUTPUT_CHARACTER_BUDGET);
   });
+
+  it("keeps an approved screenshot door within the same budget", () => {
+    const state = cloneInitialState();
+    state.opportunity = {
+      state: "approved",
+      title: "A long but valid source-backed opportunity title for a public product-building program",
+      sourceLabel: "Official opportunity page",
+      sourceUrl: "https://example.com/opportunity",
+      sourceClause: "An official rule clause that is intentionally long but never copied into the compact path snapshot.",
+      deadlineMonth: "2027-08",
+      rationale: "This route creates inspectable artifacts that address the current proof gap.",
+      outputs: ["Published product case study", "Public repository with documentation", "Recorded product walkthrough", "Peer review trail", "Decision log"],
+    };
+    const output = serializeToolOutput(summarizeState(state));
+    expect(output.length).toBeLessThanOrEqual(WEBMCP_OUTPUT_CHARACTER_BUDGET);
+  });
 });

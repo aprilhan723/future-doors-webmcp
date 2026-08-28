@@ -33,11 +33,12 @@ When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) 
 ## Future Doors proof to show
 
 - One human and one agent act on the same visible opportunity path.
-- The agent can stage CV facts, inspect, focus, compare, simulate, explain, and propose a sourced detour.
+- The agent can turn a screenshot clue into a source-backed staged door, stage CV facts, inspect, focus, compare, simulate, explain, and propose a sourced detour.
 - Agent actions visibly update the page instead of returning invisible chat-only output.
 - Simulations never become confirmed profile facts.
 - A sourced detour is staged but cannot be approved by a WebMCP tool; approval remains human-only.
 - Profile facts extracted from a CV or chat are staged but cannot be confirmed by a WebMCP tool.
+- A screenshot never counts as a source. The agent must find an original official HTTPS page, and only the person can approve the staged door.
 - The demo shows the complete chain: goal/profile → next door → evidence created → later door → missed-door repair.
 
 ## WebMCP implementation audit
@@ -72,18 +73,20 @@ Test both direct and ambiguous prompts, correct ordering, parameters, UI updates
    - Expected: schema rejection or a clear error; no silent corruption.
 8. “Stage the explicit facts from Maya's CV for review.”
    - Expected: `stage_profile_facts`; the website shows a review sheet and requires a human click before changing the profile.
+9. “Find the official source for this opportunity screenshot and add it for review.”
+   - Expected: external source research → `stage_opportunity_from_source`; the website shows the source receipt and requires human approval.
 
 Automated coverage lives in `src/lib/webmcp.test.ts`, `src/lib/future-map.test.ts`, and `evals/webmcp-journeys.json`. Run it with `npm test`.
 
 ## Demo sequence (target: 120–150 seconds)
 
-1. **0–15s:** “Job boards show openings. Future Doors shows what one opportunity creates next.”
-2. **15–30s:** Agent stages explicit CV facts; the person confirms them in the website.
-3. **30–55s:** Ask the agent to inspect and take the first door; show the same UI update.
-4. **55–80s:** Reset and miss the door; show the evidence chain break.
-5. **80–110s:** Agent stages a source-backed detour; show source, outputs, ETA, and human-only approval.
-6. **110–135s:** Approve in the UI; show the repaired path and explicit tradeoff.
-7. **135–150s:** Show the twelve registered WebMCP tools and the three guardrails.
+1. **0–12s:** Show a saved opportunity screenshot. “A screenshot is a clue. Future Doors finds the official rule and shows what the door creates next.”
+2. **12–35s:** The agent finds the official page and calls `stage_opportunity_from_source`; show the staged receipt and human approval.
+3. **35–58s:** Ask the agent to take the approved door; show proof appear and Door 02 unlock.
+4. **58–82s:** Reset and miss the door; show the evidence chain break.
+5. **82–112s:** Agent stages a source-backed detour; show source, outputs, ETA, and human-only approval.
+6. **112–135s:** Approve in the UI; show the repaired path and explicit tradeoff.
+7. **135–150s:** Show the thirteen registered WebMCP tools and the three approval guardrails.
 
 ## Official resources worth using
 

@@ -37,6 +37,15 @@ declare global {
 export type FutureDoorsActions = {
   getPathSnapshot: () => unknown;
   stageProfileFacts: (proposal: Partial<Pick<Profile, "name" | "age" | "graduationMonth" | "nationality" | "residence" | "studyStatus" | "fieldOfStudy" | "workAuthorization" | "strengths" | "credentials" | "gap">>) => unknown;
+  stageOpportunityFromSource: (proposal: {
+    title: string;
+    sourceLabel: string;
+    sourceUrl: string;
+    sourceClause: string;
+    deadlineMonth: string;
+    rationale: string;
+    outputs: string[];
+  }) => unknown;
   focusRoute: (routeId: RouteId, actor?: "you" | "agent") => unknown;
   focusStep: (stepId: string, actor?: "you" | "agent") => unknown;
   movePathClock: (month: string, actor?: "you" | "agent") => unknown;
@@ -169,6 +178,7 @@ export function asToolResult(value: unknown) {
 export const siteToolNames = [
   "get_path_snapshot",
   "stage_profile_facts",
+  "stage_opportunity_from_source",
   "focus_route",
   "focus_step",
   "move_path_clock",
@@ -224,6 +234,30 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
         strengths: optionalStringArray(input, "strengths", 4),
         credentials: optionalStringArray(input, "credentials", 6),
         gap: optionalString(input, "gap", 2, 100),
+      })),
+    },
+    {
+      name: "stage_opportunity_from_source",
+      title: "Stage a screenshot opportunity",
+      description: "After inspecting a screenshot shared in chat, find its original official HTTPS page and stage one source-backed opportunity in Future Doors for human approval. Never use the screenshot itself as the source.",
+      inputSchema: objectSchema({
+        title: { type: "string", minLength: 3, maxLength: 100, description: "Official opportunity or program title." },
+        source_label: { type: "string", minLength: 3, maxLength: 120, description: "Short label for the original official page." },
+        source_url: { type: "string", format: "uri", description: "Original official HTTPS page, not a social post or screenshot URL." },
+        source_clause: { type: "string", minLength: 12, maxLength: 500, description: "Concise official clause supporting the deadline or eligibility rule." },
+        deadline_month: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$", description: `Verified deadline month from ${PATH_START} through ${PATH_END}.` },
+        rationale: { type: "string", minLength: 12, maxLength: 300, description: "How this door could create evidence relevant to the current missing proof." },
+        outputs: { type: "array", minItems: 1, maxItems: 5, items: { type: "string", minLength: 2, maxLength: 60 }, description: "One to five inspectable artifacts this opportunity can create." },
+      }, ["title", "source_label", "source_url", "source_clause", "deadline_month", "rationale", "outputs"]),
+      annotations: { untrustedContentHint: true },
+      execute: (input) => asToolResult(actions.stageOpportunityFromSource({
+        title: requireString(input, "title", 3, 100),
+        sourceLabel: requireString(input, "source_label", 3, 120),
+        sourceUrl: requireHttpsUrl(input, "source_url"),
+        sourceClause: requireString(input, "source_clause", 12, 500),
+        deadlineMonth: requirePathMonth(input.deadline_month),
+        rationale: requireString(input, "rationale", 12, 300),
+        outputs: requireStringArray(input, "outputs", 1, 5),
       })),
     },
     {
@@ -304,7 +338,7 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
     {
       name: "compare_routes",
       title: "Compare all routes",
-      description: "Read a concise comparison of all three routes, including fit, timing, evidence created, next door, outcome direction, and pinned constraints.",
+      description: "Read a concise comparison of all three routes, including the visible reason, timing, evidence created, next door, outcome direction, and pinned constraints.",
       inputSchema: objectSchema({}),
       annotations: { readOnlyHint: true },
       execute: () => asToolResult(actions.compareRoutes()),
