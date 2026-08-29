@@ -59,6 +59,12 @@ function cardStatus(node: PathNode) {
   return statusCopy[node.status];
 }
 
+function displayNodeTitle(node: PathNode) {
+  if (node.id === "ship-challenge") return "WebMCP Challenge";
+  if (node.kind === "evidence" || node.kind === "bridge") return node.status === "blocked" ? "Missing public proof" : "Build public proof";
+  return node.title;
+}
+
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -102,7 +108,7 @@ function OpportunityJourney({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function ProfileStrip({
+function ProfileRail({
   state,
   cvName,
   onUpload,
@@ -116,17 +122,24 @@ function ProfileStrip({
   onGoal: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const facts = [
+    ["AGE", String(state.profile.age)],
+    ["GRADUATION", formatMonth(state.profile.graduationMonth)],
+    ["BASED IN", state.profile.residence],
+    ["STATUS", state.profile.studyStatus],
+  ];
 
   return (
-    <div className="profile-strip" aria-label="Facts used to build this path">
+    <aside className="side-panel profile-rail" aria-label="Facts used to build this path">
       <input ref={inputRef} hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); }} />
-      <div className="profile-person"><span className="avatar">MP</span><span><small>PATH FOR</small><strong>{state.profile.name}</strong></span><button onClick={onReview}>Edit</button></div>
-      <div className="profile-fact goal"><small>GOAL</small><strong>{state.profile.goal}</strong><span>{state.profile.targetYear}</span></div>
-      <div className="profile-fact need"><small>NEEDS NEXT</small><strong>{state.profile.gap}</strong></div>
-      <div className="profile-fact profile-signals"><small>ALREADY STRONG AT</small><strong>{state.profile.strengths.slice(0, 2).join(" + ")}</strong></div>
-      <div className="profile-actions"><button title={cvName} onClick={() => inputRef.current?.click()}>CHECK CV</button><button className="goal-action" onClick={onGoal}>CHANGE GOAL</button></div>
-      <span className="profile-verified">YOU APPROVE ALL FACTS</span>
-    </div>
+      <header className="side-heading"><span>01</span><div><small>YOUR START</small><h2>What the path knows</h2></div></header>
+      <div className="profile-person"><span className="avatar">MP</span><span><strong>{state.profile.name}</strong><small>{state.profile.fieldOfStudy}</small></span><button onClick={onReview}>EDIT</button></div>
+      <button className="goal-card" onClick={onGoal}><small>YOUR GOAL</small><strong>{state.profile.goal}</strong><span>{state.profile.targetYear} ↗</span></button>
+      <dl className="fact-grid">{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd title={value}>{value}</dd></div>)}</dl>
+      <div className="strength-card"><small>YOU ALREADY HAVE</small>{state.profile.strengths.slice(0, 2).map((item) => <span key={item}>✓ {item}</span>)}</div>
+      <div className="gap-card"><small>YOU NEED NEXT</small><strong>{state.profile.gap}</strong></div>
+      <button className="cv-button" title={cvName} onClick={() => inputRef.current?.click()}><span>CV · OPTIONAL</span><strong>{cvName === "Sample · Maya Park" ? "Check sample CV" : cvName}</strong><b>↗</b></button>
+    </aside>
   );
 }
 
@@ -150,18 +163,16 @@ function RouteSwitcher({ routes, selected, onSelect }: { routes: Route[]; select
 function PathCard({ node, selected, onSelect }: { node: PathNode; selected: boolean; onSelect: () => void }) {
   const isEvidence = node.kind === "evidence" || node.kind === "bridge";
   const isGoal = node.kind === "destination";
-  const label = isGoal ? "WHERE THIS LEADS" : isEvidence ? (node.status === "blocked" ? "WHAT IS MISSING" : "YOU LEAVE WITH") : node.stage === 1 ? "DO THIS NOW" : "THEN YOU CAN";
-  const title = node.id === "ship-challenge" ? "Enter the WebMCP Challenge" : node.title;
+  const title = displayNodeTitle(node);
   return <Tilt className="path-card-tilt" rotationFactor={2.4}>
     <motion.button layout className={`path-card ${node.kind} ${node.status} ${selected ? "selected" : ""}`} onClick={onSelect} whileTap={{ scale: 0.985 }}>
       <span className="status-pill">{cardStatus(node)}</span>
       <div className="path-icon">
         {isEvidence ? <span className="proof-stack" aria-hidden="true"><i /><i /><b>✓</b></span> : isGoal ? <span className="goal-glyph" aria-hidden="true"><i /><b /></span> : <DoorGlyph status={node.status} />}
       </div>
-      <small>{label}</small>
       <strong>{title}</strong>
       <p>{node.date}</p>
-      {isEvidence ? <div className="mini-evidence">{node.evidence.slice(0, 3).map((item) => <span key={item}>{node.status === "blocked" ? "×" : "✓"} {item}</span>)}</div> : null}
+      {isEvidence ? <span className="card-outcome">{node.evidence.slice(0, 2).join(" · ")}</span> : null}
       <span className="card-corner" aria-hidden="true" />
     </motion.button>
   </Tilt>;
@@ -183,50 +194,52 @@ function DecisionDock({ state, route, onTake, onMiss, onRepair, onReset }: { sta
   if (state.scenario === "miss") return <div className="decision-dock danger"><div><small>THE NEXT STEP IS BLOCKED</small><strong>Find another way to make the same work.</strong></div><button className="primary" onClick={onRepair}>SHOW ANOTHER WAY</button><button onClick={onReset}>START OVER</button></div>;
   if (state.scenario === "take") return <div className="decision-dock success"><div><small>YOU NOW HAVE THE WORK YOU NEED</small><strong>The next step is open.</strong></div><button onClick={onReset}>START OVER</button></div>;
   if (state.scenario === "rerouted") return <div className="decision-dock success"><div><small>YOU FOUND ANOTHER WAY</small><strong>Same useful work, six weeks later.</strong></div><button onClick={onReset}>START OVER</button></div>;
-  return <div className="decision-dock"><div><small>TRY THE PATH</small><strong>See what happens if you take or miss this opportunity.</strong></div><button className="primary" onClick={onTake}>I TAKE IT</button><button onClick={onMiss}>I MISS IT</button></div>;
+  return <div className="decision-dock"><div><small>TRY THE PATH</small><strong>See how the next door changes.</strong></div><button className="primary" onClick={onTake}>I TAKE IT</button><button onClick={onMiss}>I MISS IT</button></div>;
 }
 
-function StepDock({ node, onTools }: { node: PathNode; onTools: () => void }) {
+function PathCanvas({ state, route, routes, onRoute, onNode, onTake, onMiss, onRepair, onReset, onWhy }: { state: FutureDoorsState; route: Route; routes: Route[]; onRoute: (id: RouteId) => void; onNode: (node: PathNode) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void }) {
+  const broken = state.scenario === "miss" && route.id === "ship";
+  return <section className="path-canvas" aria-label="Your opportunity path">
+    <Spotlight className="workspace-spotlight" size={460} />
+    <header className="canvas-heading"><div><small>YOUR BEST ROUTE</small><h2>See what opens next</h2></div><button className="why-button" onClick={onWhy}>WHY THIS PATH? ↗</button></header>
+    <RouteSwitcher routes={routes} selected={route.id} onSelect={onRoute} />
+    <div className="route-caption"><span>BEST NEXT MOVE</span><strong>{route.summary}</strong><b>TRY-OUT · NOT A PREDICTION</b></div>
+    <div className={`path-stage scenario-${state.scenario}`}>
+      <Image className="haikei-waves" src="/haikei-path-waves.svg" alt="" width={900} height={600} loading="eager" aria-hidden="true" />
+      <AnimatedGroup className="path-chain" key={`${state.replayToken}-${route.id}`} preset="blur-slide" stagger={0.07}>
+        {route.nodes.map((node, index) => <div className="chain-piece" key={node.id}><PathCard node={node} selected={state.selectedNodeId === node.id} onSelect={() => onNode(node)} />{index < route.nodes.length - 1 ? <Connector node={node} broken={broken && index === 0} /> : null}</div>)}
+      </AnimatedGroup>
+    </div>
+    <DecisionDock state={state} route={route} onTake={onTake} onMiss={onMiss} onRepair={onRepair} onReset={onReset} />
+  </section>;
+}
+
+function Inspector({ node, onTools }: { node: PathNode; onTools: () => void }) {
   const sourceBacked = Boolean(node.sourceUrl && node.sourceClause);
   const plainEffect = node.kind === "opportunity"
     ? `${node.title} can give you ${node.evidence.slice(0, 3).join(", ")}.`
     : node.kind === "destination"
       ? "This is your direction, not a promise of an outcome."
       : node.description;
-  return <motion.div className="step-dock" layout key={node.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
-    <span className={`step-status ${node.status}`}><i />{cardStatus(node)}</span>
-    <div><small>WHY THIS STEP IS HERE</small><strong>{plainEffect}</strong></div>
-    <div className="step-results"><small>WHAT MOVES FORWARD</small><span>{node.evidence.slice(0, 3).join(" · ")}</span></div>
-    {sourceBacked ? <a href={node.sourceUrl} target="_blank" rel="noreferrer">OFFICIAL PAGE ↗</a> : <button onClick={onTools}>HOW THE AGENT HELPS</button>}
-  </motion.div>;
+  return <aside className="side-panel inspector" aria-label="Selected step details">
+    <header className="side-heading"><span>03</span><div><small>SELECTED DOOR</small><h2>Why it fits</h2></div></header>
+    <motion.div className="inspector-content" layout key={node.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
+      <span className={`inspect-status ${node.status}`}><i />{cardStatus(node)}</span>
+      <div className="inspect-title"><small>{node.eyebrow.split("·")[0]}</small><h3>{displayNodeTitle(node)}</h3><p>{plainEffect}</p></div>
+      <div className="rule-card"><header><small>{sourceBacked ? "OFFICIAL RULE" : "PATH LOGIC"}</small><span>{sourceBacked ? "CHECKED" : "PLANNED"}</span></header><p>{node.sourceClause ?? node.edgeToNext?.label ?? "This is a direction, not a predicted outcome."}</p>{node.sourceUrl ? <a href={node.sourceUrl} target="_blank" rel="noreferrer">OPEN SOURCE ↗</a> : null}</div>
+      <div className="output-card"><small>MOVES FORWARD</small><div>{node.evidence.slice(0, 3).map((item) => <span key={item}>✓ {item}</span>)}</div></div>
+      <div className="approval-note"><span>✦ Agent checks</span><span>● You approve</span></div>
+    </motion.div>
+    <button className="agent-help" onClick={onTools}>HOW THE AGENT HELPS ↗</button>
+  </aside>;
 }
 
 function JourneyWorkspace({ state, route, routes, selectedNode, cvName, onUpload, onReview, onGoal, onRoute, onNode, onTake, onMiss, onRepair, onReset, onWhy, onTools }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onRoute: (id: RouteId) => void; onNode: (node: PathNode) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void }) {
-  const broken = state.scenario === "miss" && route.id === "ship";
   return (
-    <section className="journey-workspace" aria-label="Your opportunity path">
-      <Spotlight className="workspace-spotlight" size={460} />
-      <header className="journey-heading">
-        <div><small>YOUR OPPORTUNITY PATH</small><h2>One move should make the next one possible.</h2></div>
-        <div className="journey-heading-actions"><span><i />AGENT CHECKS</span><span className="human"><i />YOU DECIDE</span><button className="why-button" onClick={onWhy}>WHY THIS PATH? ↗</button></div>
-      </header>
-      <ProfileStrip state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} />
-      <RouteSwitcher routes={routes} selected={route.id} onSelect={onRoute} />
-      <div className={`path-stage scenario-${state.scenario}`}>
-        <Image className="haikei-waves" src="/haikei-path-waves.svg" alt="" width={900} height={600} aria-hidden="true" />
-        <div className="route-caption"><span>BEST NEXT MOVE</span><strong>{route.summary}</strong></div>
-        <AnimatedGroup className="path-chain" key={`${state.replayToken}-${route.id}`} preset="blur-slide" stagger={0.07}>
-        {route.nodes.map((node, index) => (
-          <div className="chain-piece" key={node.id}>
-            <PathCard node={node} selected={state.selectedNodeId === node.id} onSelect={() => onNode(node)} />
-            {index < route.nodes.length - 1 ? <Connector node={node} broken={broken} /> : null}
-          </div>
-        ))}
-        </AnimatedGroup>
-        <div className="path-legend"><span><i className="solid-line" /> each arrow names what moves forward</span><b>TRY-OUT · NOT A PREDICTION</b></div>
-      </div>
-      <StepDock node={selectedNode} onTools={onTools} />
-      <DecisionDock state={state} route={route} onTake={onTake} onMiss={onMiss} onRepair={onRepair} onReset={onReset} />
+    <section className="workspace-grid" aria-label="Your opportunity path">
+      <ProfileRail state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} />
+      <PathCanvas state={state} route={route} routes={routes} onRoute={onRoute} onNode={onNode} onTake={onTake} onMiss={onMiss} onRepair={onRepair} onReset={onReset} onWhy={onWhy} />
+      <Inspector node={selectedNode} onTools={onTools} />
     </section>
   );
 }
