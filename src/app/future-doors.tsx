@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AnimatedBackground, AnimatedGroup, Spotlight, Tilt } from "@/components/motion-primitives";
 import {
@@ -217,6 +217,8 @@ function EvidenceDrawer({ node, onTools }: { node: PathNode; onTools: () => void
   </aside>;
 }
 
+// Kept as a fallback composition while the editorial theater is validated.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SpatialWorkspace({ state, route, routes, selectedNode, cvName, onUpload, onReview, onGoal, onRoute, onNode, onTake, onMiss, onRepair, onReset, onWhy, onTools, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onRoute: (id: RouteId) => void; onNode: (node: PathNode) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
   return (
     <section className="spatial-workspace" aria-label="Your opportunity path">
@@ -231,6 +233,106 @@ function SpatialWorkspace({ state, route, routes, selectedNode, cvName, onUpload
       </div>
     </section>
   );
+}
+
+function OpeningSequence({ onDone }: { onDone: () => void }) {
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(onDone, reduced ? 350 : 2450);
+    return () => window.clearTimeout(timer);
+  }, [onDone]);
+
+  return <motion.section className="opening-sequence" aria-label="Future Doors is opening" initial={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.48 }}>
+    <div className="opening-wordmark">FUTURE DOORS <span>01</span></div>
+    <div className="opening-object" aria-hidden="true">
+      <div className="opening-clock">
+        {Array.from({ length: 12 }, (_, index) => <i key={index} style={{ transform: `rotate(${index * 30}deg)` }} />)}
+        <b className="opening-hand hour" /><b className="opening-hand minute" />
+        <div className="opening-door"><span><i /></span></div>
+      </div>
+    </div>
+    <motion.div className="opening-copy" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28, duration: 0.6 }}>
+      <small>EVERY OPPORTUNITY HAS A WINDOW</small>
+      <h1>See what opens next.</h1>
+    </motion.div>
+    <button onClick={onDone}>SKIP ↗</button>
+  </motion.section>;
+}
+
+function StageVisual({ node }: { node: PathNode }) {
+  const evidence = node.kind === "evidence" || node.kind === "bridge";
+  const goal = node.kind === "destination";
+  return <motion.div className={`stage-visual ${node.kind} ${node.status}`} key={node.id} initial={{ opacity: 0, scale: .82, rotateY: -12 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} exit={{ opacity: 0, scale: 1.08, rotateY: 10 }} transition={{ type: "spring", stiffness: 180, damping: 22 }}>
+    <div className="time-orbit" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ transform: `rotate(${index * 30}deg)` }} />)}<b /></div>
+    {evidence ? <span className="stage-proof" aria-hidden="true"><i /><i /><b>✓</b></span> : goal ? <span className="stage-target" aria-hidden="true"><i /><b /></span> : <span className="stage-door" aria-hidden="true"><i><b /></i><em>{node.status === "expired" || node.status === "blocked" ? "×" : ""}</em></span>}
+    <span className="stage-floor-shadow" />
+  </motion.div>;
+}
+
+function EditorialProfile({ state, cvName, onUpload, onReview, onGoal }: { state: FutureDoorsState; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return <aside className="editorial-profile" aria-label="Facts used to build this path">
+    <input ref={inputRef} hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); }} />
+    <header><small>YOU ARE HERE</small><button onClick={onReview}>EDIT</button></header>
+    <div className="editorial-person"><span>MP</span><div><strong>{state.profile.name}</strong><p>{state.profile.age} · {state.profile.residence}</p></div></div>
+    <dl><div><dt>GRADUATION</dt><dd>{formatMonth(state.profile.graduationMonth)}</dd></div><div><dt>STATUS</dt><dd>{state.profile.studyStatus}</dd></div></dl>
+    <button className="editorial-goal" onClick={onGoal}><small>YOUR DIRECTION</small><strong>{state.profile.goal}</strong><span>{state.profile.targetYear} ↗</span></button>
+    <div className="editorial-gap"><small>NEED NEXT</small><strong>{state.profile.gap}</strong></div>
+    <button className="editorial-cv" onClick={() => inputRef.current?.click()}><span>CV</span><div><small>{cvName.startsWith("Sample") ? "TRY THE SAMPLE" : "READY TO REVIEW"}</small><strong>{cvName.replace("Sample · ", "")}</strong></div><b>＋</b></button>
+  </aside>;
+}
+
+function EditorialRoutes({ routes, selected, onSelect }: { routes: Route[]; selected: RouteId; onSelect: (id: RouteId) => void }) {
+  return <nav className="editorial-routes" aria-label="Possible routes">{routes.map((item, index) => <button className={item.id === selected ? "active" : ""} key={item.id} onClick={() => onSelect(item.id)}><span>0{index + 1}</span><strong>{routeNames[item.id].label}</strong></button>)}</nav>;
+}
+
+function EditorialDecision({ state, route, onTake, onMiss, onRepair, onReset }: { state: FutureDoorsState; route: Route; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void }) {
+  if (route.id !== "ship") return <div className="editorial-decision"><span><small>ANOTHER ROUTE</small><strong>{route.summary}</strong></span><button onClick={onReset}>BACK TO BEST ROUTE</button></div>;
+  if (state.scenario === "miss") return <div className="editorial-decision danger"><span><small>THE PATH STOPS HERE</small><strong>The next step has no proof to use.</strong></span><button className="accent" onClick={onRepair}>FIND A DETOUR →</button><button onClick={onReset}>RESET</button></div>;
+  if (state.scenario === "take") return <div className="editorial-decision success"><span><small>PROOF CREATED</small><strong>The next door is now ready.</strong></span><button onClick={onReset}>TRY AGAIN</button></div>;
+  if (state.scenario === "rerouted") return <div className="editorial-decision success"><span><small>PATH REPAIRED</small><strong>Same proof, six weeks later.</strong></span><button onClick={onReset}>TRY AGAIN</button></div>;
+  return <div className="editorial-decision"><span><small>TRY THE FUTURE</small><strong>What happens to the path?</strong></span><button className="accent" onClick={onTake}>TAKE THIS DOOR →</button><button onClick={onMiss}>SKIP IT</button></div>;
+}
+
+function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUpload, onReview, onGoal, onRoute, onNode, onTake, onMiss, onRepair, onReset, onWhy, onTools, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onRoute: (id: RouteId) => void; onNode: (node: PathNode) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
+  const sourceBacked = Boolean(selectedNode.sourceUrl && selectedNode.sourceClause);
+  const proposedSource = selectedNode.kind === "bridge";
+  const selectedIndex = Math.max(0, route.nodes.findIndex((node) => node.id === selectedNode.id));
+  return <section className="editorial-workspace">
+    <header className="editorial-hero">
+      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>FROM A SAVED POST TO A REAL NEXT MOVE</small><h1>Don&apos;t just save it. <em>See where it leads.</em></h1></motion.div>
+      <button className="capture-callout" onClick={onCapture}><span className="capture-glyph"><i>POST</i><b /><em /></span><span><small>START WITH ANY OPPORTUNITY</small><strong>Add a screenshot or link</strong><p>Agent finds the official rules → you choose</p></span><b>＋</b></button>
+    </header>
+    <div className="editorial-grid">
+      <EditorialProfile state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} />
+      <section className="door-theater" aria-label="Your verified opportunity path">
+        <header><div><small>YOUR BEST ROUTE</small><h2>One move. Then the next door.</h2></div><button onClick={onWhy}>WHY THIS ROUTE ↗</button></header>
+        <EditorialRoutes routes={routes} selected={route.id} onSelect={onRoute} />
+        <div className={`theater-scene scenario-${state.scenario}`}>
+          <div className="theater-grid" aria-hidden="true" />
+          <motion.div className="stage-copy" key={`${selectedNode.id}-copy`} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }}>
+            <small>{selectedNode.eyebrow}</small><h3>{displayNodeTitle(selectedNode)}</h3><p>{selectedNode.date}</p>
+          </motion.div>
+          <AnimatePresence mode="wait"><StageVisual node={selectedNode} /></AnimatePresence>
+          <motion.div className="stage-outcome" key={`${selectedNode.id}-outcome`} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}>
+            <small>{selectedNode.kind === "destination" ? "WHERE THIS BUILDS" : "WHAT CHANGES NEXT"}</small><p>{selectedNode.edgeToNext?.label ?? selectedNode.description}</p>
+            <div>{selectedNode.evidence.slice(0, 2).map((item) => <span key={item}>✓ {item}</span>)}</div>
+          </motion.div>
+        </div>
+        <nav className="chapter-track" aria-label="Steps in this route">{route.nodes.map((node, index) => <button key={node.id} className={`${node.id === selectedNode.id ? "active" : ""} ${index < selectedIndex ? "passed" : ""}`} onClick={() => onNode(node)}><i>{index < selectedIndex ? "✓" : index + 1}</i><span><small>{cardStatus(node)}</small><strong>{displayNodeTitle(node)}</strong></span></button>)}</nav>
+        <EditorialDecision state={state} route={route} onTake={onTake} onMiss={onMiss} onRepair={onRepair} onReset={onReset} />
+      </section>
+      <aside className="editorial-inspector">
+        <header><small>CHECK THIS STEP</small><b className={selectedNode.status}>{cardStatus(selectedNode)}</b></header>
+        <motion.div key={selectedNode.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <span className="inspector-number">0{Math.min(selectedNode.stage, 9)}</span><h3>{displayNodeTitle(selectedNode)}</h3><p>{selectedNode.description}</p>
+        </motion.div>
+        <section><header><small>{proposedSource ? "PROPOSED SOURCE" : sourceBacked ? "OFFICIAL RULE" : "PATH LOGIC"}</small><span>{proposedSource ? "YOU APPROVED" : sourceBacked ? "CHECKED" : "PLANNED"}</span></header><p>{selectedNode.sourceClause ?? selectedNode.edgeToNext?.label ?? "A direction, never a prediction."}</p>{selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OPEN SOURCE ↗</a> : null}</section>
+        <div className="agent-boundary"><span>AGENT</span><p>Checks the source and stages changes.</p><span>YOU</span><p>Approve what joins the path.</p></div>
+        <button onClick={onTools}>HOW THE AGENT HELPS ↗</button>
+      </aside>
+    </div>
+  </section>;
 }
 
 function ModalFrame({ label, title, onClose, children, className = "" }: { label: string; title: string; onClose: () => void; children: React.ReactNode; className?: string }) {
@@ -266,7 +368,7 @@ function GoalModal({ profile, onSave, onClose }: { profile: Profile; onSave: (go
 }
 
 function BridgeModal({ state, onApprove, onClose }: { state: FutureDoorsState; onApprove: () => void; onClose: () => void }) {
-  return <ModalFrame label="ANOTHER WAY · WAITING FOR YOU" title="Replace the missed step" onClose={onClose} className="bridge-modal"><div className="bridge-flow"><span><small>MISSED</small><b>WebMCP Challenge</b></span><i>→</i><span className="proposed"><small>ANOTHER WAY</small><b>{state.bridge.title}</b><em>{state.bridge.eta}</em></span><i>→</i><span><small>YOU STILL GET</small>{state.bridge.outputs.map((item) => <b key={item}>✓ {item}</b>)}</span></div><div className="bridge-reason"><div><small>WHY IT CAN REPLACE IT</small><p>{state.bridge.rationale}</p></div><div><small>OFFICIAL PAGE</small><blockquote>{state.bridge.sourceClause}</blockquote><a href={state.bridge.sourceUrl} target="_blank" rel="noreferrer">Open official page ↗</a></div></div><footer><span>The agent suggests. Only you can change the path.</span><button onClick={onClose}>KEEP OLD PATH</button><button className="primary" onClick={onApprove}>USE THIS WAY</button></footer></ModalFrame>;
+  return <ModalFrame label="ANOTHER WAY · WAITING FOR YOU" title="Replace the missed step" onClose={onClose} className="bridge-modal"><div className="bridge-flow"><span><small>MISSED</small><b>WebMCP Challenge</b></span><i>→</i><span className="proposed"><small>AGENT PROPOSAL</small><b>{state.bridge.title}</b><em>{state.bridge.eta}</em></span><i>→</i><span><small>INTENDED OUTPUTS</small>{state.bridge.outputs.map((item) => <b key={item}>✓ {item}</b>)}</span></div><div className="bridge-reason"><div><small>WHY THE AGENT SUGGESTED IT</small><p>{state.bridge.rationale}</p></div><div><small>SOURCE TO REVIEW</small><blockquote>{state.bridge.sourceClause}</blockquote><a href={state.bridge.sourceUrl} target="_blank" rel="noreferrer">Open proposed source ↗</a></div></div><footer><span>This source is proposed, not independently verified. Only you can adopt it.</span><button onClick={onClose}>KEEP OLD PATH</button><button className="primary" onClick={onApprove}>USE THIS WAY</button></footer></ModalFrame>;
 }
 
 function CaptureModal({ candidates, selectedId, profile, onSelect, onConnect, onClose }: { candidates: OpportunityCandidate[]; selectedId: string | null; profile: Profile; onSelect: (id: string) => void; onConnect: (id: string) => void; onClose: () => void }) {
@@ -321,6 +423,7 @@ export default function FutureDoors() {
   const [cvName, setCvName] = useState("Sample · Maya_Park.pdf");
   const [proposedProfile, setProposedProfile] = useState<Profile | null>(null);
   const [reviewOpportunityId, setReviewOpportunityId] = useState<string | null>(null);
+  const [introVisible, setIntroVisible] = useState(true);
   const stateRef = useRef(state);
 
   const setView = useCallback((transform: (current: FutureDoorsState) => FutureDoorsState) => {
@@ -388,9 +491,10 @@ export default function FutureDoors() {
 
   const openCapture = () => { setReviewOpportunityId(state.opportunities[0]?.id ?? null); setModal("capture"); };
 
-  return <main className="spatial-shell">
-    <header className="spatial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>{webMcpStatus === "ready" ? "AGENT READY" : "WEBMCP"}</b></div><nav><button className="spatial-capture" onClick={openCapture}>＋ ADD POST{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>ABOUT</button></nav></header>
-    <SpatialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onRoute={(id) => selectRoute(id)} onNode={(node) => selectNode(node.id)} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} />
+  return <main className="spatial-shell editorial-shell">
+    <AnimatePresence>{introVisible ? <OpeningSequence onDone={() => setIntroVisible(false)} /> : null}</AnimatePresence>
+    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → PROOF</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={openCapture}>＋ ADD OPPORTUNITY{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
+    <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onRoute={(id) => selectRoute(id)} onNode={(node) => selectNode(node.id)} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} />
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}
       {modal === "goal" ? <GoalModal profile={state.profile} onSave={saveGoal} onClose={() => setModal(null)} /> : null}
