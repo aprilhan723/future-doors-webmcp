@@ -259,6 +259,37 @@ function OpeningSequence({ onDone }: { onDone: () => void }) {
   </motion.section>;
 }
 
+function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: () => void; onTools: () => void }) {
+  return <section className="launch-scene" aria-labelledby="launch-title">
+    <motion.div className="launch-copy" initial={{ opacity: 0, x: -26 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .72, ease: [0.16, 1, 0.3, 1] }}>
+      <small>ONE SAVED OPPORTUNITY → ONE VERIFIED NEXT MOVE</small>
+      <h1 id="launch-title">See what this door <em>opens next.</em></h1>
+      <p>Add a screenshot or link. The agent checks the official rules and shows what the opportunity can create. <b>You decide what joins your path.</b></p>
+      <div className="launch-actions">
+        <button className="launch-primary" onClick={onDemo}>TRY THE 30-SECOND DEMO <span>→</span></button>
+        <button onClick={onAdd}>ADD MY OPPORTUNITY <span>＋</span></button>
+      </div>
+      <button className="launch-explain" onClick={onTools}>WHY THIS NEEDS WEBMCP ↗</button>
+    </motion.div>
+
+    <motion.div className="launch-world" initial={{ opacity: 0, scale: .86, rotateY: -8 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} transition={{ delay: .12, type: "spring", stiffness: 95, damping: 18 }} aria-hidden="true">
+      <div className="launch-halo halo-one" /><div className="launch-halo halo-two" />
+      <div className="launch-post"><i>POST</i><b /><b /><span>1 · YOU SHARE</span></div>
+      <div className="launch-rule"><i>✓</i><b>OFFICIAL RULES</b><span>2 · AGENT CHECKS</span></div>
+      <div className="launch-door"><span><i /></span><b>OPEN</b></div>
+      <div className="launch-stairs">{Array.from({ length: 7 }, (_, index) => <i key={index} />)}</div>
+      <div className="launch-next"><i /><b>NEXT DOOR</b><span>3 · YOU CHOOSE</span></div>
+      <div className="launch-line line-one" /><div className="launch-line line-two" />
+    </motion.div>
+
+    <ol className="launch-method" aria-label="How Future Doors works">
+      <li><i>01</i><span><b>YOU SHARE</b><small>A screenshot or link</small></span></li>
+      <li><i>02</i><span><b>AGENT CHECKS</b><small>Source, rules, deadline</small></span></li>
+      <li><i>03</i><span><b>YOU CHOOSE</b><small>Take it, skip it, or reroute</small></span></li>
+    </ol>
+  </section>;
+}
+
 function StageVisual({ node }: { node: PathNode }) {
   const evidence = node.kind === "evidence" || node.kind === "bridge";
   const goal = node.kind === "destination";
@@ -298,6 +329,7 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
   const sourceBacked = Boolean(selectedNode.sourceUrl && selectedNode.sourceClause);
   const proposedSource = selectedNode.kind === "bridge";
   const selectedIndex = Math.max(0, route.nodes.findIndex((node) => node.id === selectedNode.id));
+  const uploadRef = useRef<HTMLInputElement>(null);
   return <section className="editorial-workspace">
     <header className="editorial-hero">
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>FROM A SAVED POST TO A REAL NEXT MOVE</small><h1>Don&apos;t just save it. <em>See where it leads.</em></h1></motion.div>
@@ -306,7 +338,16 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
     <div className="editorial-grid">
       <EditorialProfile state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} />
       <section className="door-theater" aria-label="Your verified opportunity path">
-        <header><div><small>YOUR BEST ROUTE</small><h2>One move. Then the next door.</h2></div><button onClick={onWhy}>WHY THIS ROUTE ↗</button></header>
+        <header>
+          <div><small>YOUR VERIFIED PATH</small><h2>Pick a step. Then try taking or missing it.</h2></div>
+          <input ref={uploadRef} hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); }} />
+          <nav className="theater-actions" aria-label="Path inputs">
+            <button onClick={onReview}>PROFILE · {state.profile.name.split(" ")[0]}</button>
+            <button onClick={onGoal}>GOAL · {state.profile.targetYear}</button>
+            <button onClick={() => uploadRef.current?.click()}>CV · {cvName.startsWith("Sample") ? "TRY" : "READY"}</button>
+            <button onClick={onWhy}>WHY THIS ROUTE ↗</button>
+          </nav>
+        </header>
         <EditorialRoutes routes={routes} selected={route.id} onSelect={onRoute} />
         <div className={`theater-scene scenario-${state.scenario}`}>
           <div className="theater-grid" aria-hidden="true" />
@@ -317,6 +358,7 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
           <motion.div className="stage-outcome" key={`${selectedNode.id}-outcome`} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}>
             <small>{selectedNode.kind === "destination" ? "WHERE THIS BUILDS" : "WHAT CHANGES NEXT"}</small><p>{selectedNode.edgeToNext?.label ?? selectedNode.description}</p>
             <div>{selectedNode.evidence.slice(0, 2).map((item) => <span key={item}>✓ {item}</span>)}</div>
+            {selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OFFICIAL SOURCE ↗</a> : <button onClick={onTools}>SEE HOW THE AGENT CHECKS ↗</button>}
           </motion.div>
         </div>
         <nav className="chapter-track" aria-label="Steps in this route">{route.nodes.map((node, index) => <button key={node.id} className={`${node.id === selectedNode.id ? "active" : ""} ${index < selectedIndex ? "passed" : ""}`} onClick={() => onNode(node)}><i>{index < selectedIndex ? "✓" : index + 1}</i><span><small>{cardStatus(node)}</small><strong>{displayNodeTitle(node)}</strong></span></button>)}</nav>
@@ -424,6 +466,7 @@ export default function FutureDoors() {
   const [proposedProfile, setProposedProfile] = useState<Profile | null>(null);
   const [reviewOpportunityId, setReviewOpportunityId] = useState<string | null>(null);
   const [introVisible, setIntroVisible] = useState(true);
+  const [started, setStarted] = useState(false);
   const stateRef = useRef(state);
 
   const setView = useCallback((transform: (current: FutureDoorsState) => FutureDoorsState) => {
@@ -490,11 +533,12 @@ export default function FutureDoors() {
   };
 
   const openCapture = () => { setReviewOpportunityId(state.opportunities[0]?.id ?? null); setModal("capture"); };
+  const startAndCapture = () => { setStarted(true); openCapture(); };
 
   return <main className="spatial-shell editorial-shell">
     <AnimatePresence>{introVisible ? <OpeningSequence onDone={() => setIntroVisible(false)} /> : null}</AnimatePresence>
-    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → PROOF</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={openCapture}>＋ ADD OPPORTUNITY{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
-    <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onRoute={(id) => selectRoute(id)} onNode={(node) => selectNode(node.id)} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} />
+    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → PROOF</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD OPPORTUNITY{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
+    {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onRoute={(id) => selectRoute(id)} onNode={(node) => selectNode(node.id)} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}
       {modal === "goal" ? <GoalModal profile={state.profile} onSave={saveGoal} onClose={() => setModal(null)} /> : null}
