@@ -80,6 +80,21 @@ function DoorGlyph({ status }: { status: PathNode["status"] }) {
   );
 }
 
+function PremiumPortal({ status = "available", hero = false }: { status?: PathNode["status"]; hero?: boolean }) {
+  const closed = status === "expired" || status === "blocked";
+  return <span className={`premium-portal ${hero ? "portal-hero" : "portal-stage"} ${closed ? "portal-closed" : "portal-open"}`} aria-hidden="true">
+    <i className="portal-aura" />
+    <i className="portal-light-ray ray-left" /><i className="portal-light-ray ray-right" />
+    <span className="portal-shell">
+      <i className="portal-rim rim-outer" /><i className="portal-rim rim-inner" />
+      <span className="portal-depth"><i className="portal-horizon" /><b className="portal-destination" />{Array.from({ length: 8 }, (_, index) => <i className={`portal-particle particle-${index + 1}`} key={index} />)}</span>
+      <span className="portal-panel"><i className="portal-panel-inset" /><b className="portal-handle" /></span>
+      <i className="portal-threshold" />
+    </span>
+    <span className="portal-reflection" />
+  </span>;
+}
+
 function HandoffFlow({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="handoff-flow" aria-label="Save a post, check its official rules, then add it to your path">
@@ -248,8 +263,8 @@ function OpeningSequence({ onDone }: { onDone: () => void }) {
       <div className="opening-clock">
         {Array.from({ length: 12 }, (_, index) => <i key={index} style={{ transform: `rotate(${index * 30}deg)` }} />)}
         <b className="opening-hand hour" /><b className="opening-hand minute" />
-        <div className="opening-door"><span><i /></span></div>
       </div>
+      <PremiumPortal hero />
     </div>
     <motion.div className="opening-copy" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28, duration: 0.6 }}>
       <small>EVERY OPPORTUNITY HAS A WINDOW</small>
@@ -272,14 +287,15 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
       <button className="launch-explain" onClick={onTools}>WHY THIS NEEDS WEBMCP ↗</button>
     </motion.div>
 
-    <motion.div className="launch-world" initial={{ opacity: 0, scale: .86, rotateY: -8 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} transition={{ delay: .12, type: "spring", stiffness: 95, damping: 18 }} aria-hidden="true">
-      <div className="launch-halo halo-one" /><div className="launch-halo halo-two" />
-      <div className="launch-post"><i>POST</i><b /><b /><span>1 · YOU SHARE</span></div>
-      <div className="launch-rule"><i>✓</i><b>OFFICIAL RULES</b><span>2 · AGENT CHECKS</span></div>
-      <div className="launch-door"><span><i /></span><b>OPEN</b></div>
-      <div className="launch-stairs">{Array.from({ length: 7 }, (_, index) => <i key={index} />)}</div>
-      <div className="launch-next"><i /><b>NEXT DOOR</b><span>3 · YOU CHOOSE</span></div>
-      <div className="launch-line line-one" /><div className="launch-line line-two" />
+    <motion.div className="launch-world" initial={{ opacity: 0, scale: .78, rotateY: -10 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} transition={{ delay: .12, duration: 1.05, ease: [0.16, 1, 0.3, 1] }} onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); event.currentTarget.style.setProperty("--pointer-x", `${((event.clientX - rect.left) / rect.width - .5) * 2}`); event.currentTarget.style.setProperty("--pointer-y", `${((event.clientY - rect.top) / rect.height - .5) * 2}`); }} onPointerLeave={(event) => { event.currentTarget.style.setProperty("--pointer-x", "0"); event.currentTarget.style.setProperty("--pointer-y", "0"); }} aria-hidden="true">
+      <div className="cinematic-field"><i /><i /><i /></div>
+      <div className="launch-pass"><span>SAVED</span><strong>WEBMCP<br />CHALLENGE</strong><small>SCREENSHOT · 01</small><i /><b /></div>
+      <div className="verification-beam"><i /><span><b>✓</b> OFFICIAL SOURCE CHECKED</span></div>
+      <PremiumPortal hero />
+      <div className="next-proof"><span>WHAT OPENS NEXT</span><strong>PUBLIC PROOF</strong><small>LIVE PRODUCT · PUBLIC CODE · DEMO</small></div>
+      <div className="world-caption caption-share"><i>01</i><b>YOU SHARE</b></div>
+      <div className="world-caption caption-check"><i>02</i><b>AGENT CHECKS</b></div>
+      <div className="world-caption caption-choose"><i>03</i><b>YOU CHOOSE</b></div>
     </motion.div>
 
     <ol className="launch-method" aria-label="How Future Doors works">
@@ -295,7 +311,7 @@ function StageVisual({ node }: { node: PathNode }) {
   const goal = node.kind === "destination";
   return <motion.div className={`stage-visual ${node.kind} ${node.status}`} key={node.id} initial={{ opacity: 0, scale: .82, rotateY: -12 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} exit={{ opacity: 0, scale: 1.08, rotateY: 10 }} transition={{ type: "spring", stiffness: 180, damping: 22 }}>
     <div className="time-orbit" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ transform: `rotate(${index * 30}deg)` }} />)}<b /></div>
-    {evidence ? <span className="stage-proof" aria-hidden="true"><i /><i /><b>✓</b></span> : goal ? <span className="stage-target" aria-hidden="true"><i /><b /></span> : <span className="stage-door" aria-hidden="true"><i><b /></i><em>{node.status === "expired" || node.status === "blocked" ? "×" : ""}</em></span>}
+    {evidence ? <span className="stage-proof" aria-hidden="true"><i /><i /><b>✓</b></span> : goal ? <span className="stage-target" aria-hidden="true"><i /><b /></span> : <PremiumPortal status={node.status} />}
     <span className="stage-floor-shadow" />
   </motion.div>;
 }
