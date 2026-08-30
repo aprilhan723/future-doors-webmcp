@@ -290,12 +290,9 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
     <motion.div className="launch-world" initial={{ opacity: 0, scale: .78, rotateY: -10 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} transition={{ delay: .12, duration: 1.05, ease: [0.16, 1, 0.3, 1] }} onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); event.currentTarget.style.setProperty("--pointer-x", `${((event.clientX - rect.left) / rect.width - .5) * 2}`); event.currentTarget.style.setProperty("--pointer-y", `${((event.clientY - rect.top) / rect.height - .5) * 2}`); }} onPointerLeave={(event) => { event.currentTarget.style.setProperty("--pointer-x", "0"); event.currentTarget.style.setProperty("--pointer-y", "0"); }} aria-hidden="true">
       <div className="cinematic-field"><i /><i /><i /></div>
       <div className="launch-pass"><span>SAVED</span><strong>WEBMCP<br />CHALLENGE</strong><small>SCREENSHOT · 01</small><i /><b /></div>
-      <div className="verification-beam"><i /><span><b>✓</b> OFFICIAL SOURCE CHECKED</span></div>
+      <div className="verification-path"><i /><b /></div>
       <PremiumPortal hero />
       <div className="next-proof"><span>WHAT OPENS NEXT</span><strong>PUBLIC PROOF</strong><small>LIVE PRODUCT · PUBLIC CODE · DEMO</small></div>
-      <div className="world-caption caption-share"><i>01</i><b>YOU SHARE</b></div>
-      <div className="world-caption caption-check"><i>02</i><b>AGENT CHECKS</b></div>
-      <div className="world-caption caption-choose"><i>03</i><b>YOU CHOOSE</b></div>
     </motion.div>
 
     <ol className="launch-method" aria-label="How Future Doors works">
