@@ -769,25 +769,10 @@ export function sanitizePersistedState(value: unknown): FutureDoorsState {
   const base = cloneInitialState();
   if (!isRecord(value)) return base;
 
-  const profileRaw = isRecord(value.profile) ? value.profile : {};
   const bridgeRaw = isRecord(value.bridge) ? value.bridge : {};
-  const profile: Profile = {
-    name: safeText(profileRaw.name, base.profile.name, 80),
-    age: Number.isInteger(profileRaw.age) && Number(profileRaw.age) >= 18 && Number(profileRaw.age) <= 100 ? Number(profileRaw.age) : base.profile.age,
-    goal: safeText(profileRaw.goal, base.profile.goal, 100),
-    targetYear: Number.isInteger(profileRaw.targetYear) && Number(profileRaw.targetYear) >= 2027 && Number(profileRaw.targetYear) <= 2040 ? Number(profileRaw.targetYear) : base.profile.targetYear,
-    graduationMonth: typeof profileRaw.graduationMonth === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(profileRaw.graduationMonth) ? profileRaw.graduationMonth : base.profile.graduationMonth,
-    nationality: safeText(profileRaw.nationality, base.profile.nationality, 80),
-    residence: safeText(profileRaw.residence, base.profile.residence, 80),
-    universityLocation: safeText(profileRaw.universityLocation, base.profile.universityLocation, 80),
-    studyStatus: safeText(profileRaw.studyStatus, base.profile.studyStatus, 80),
-    fieldOfStudy: safeText(profileRaw.fieldOfStudy, base.profile.fieldOfStudy, 100),
-    workAuthorization: safeText(profileRaw.workAuthorization, base.profile.workAuthorization, 120),
-    strengths: safeTextList(profileRaw.strengths, base.profile.strengths, 4),
-    credentials: safeTextList(profileRaw.credentials, base.profile.credentials, 6),
-    gap: safeText(profileRaw.gap, base.profile.gap, 100),
-    constraints: safeTextList(profileRaw.constraints, base.profile.constraints, 6),
-  };
+  // Eligibility-driving profile facts are approvals, not browser preferences.
+  // A local draft cannot become a confirmed fact after reload.
+  const profile: Profile = { ...base.profile };
 
   let selectedMonth = base.selectedMonth;
   try { selectedMonth = requirePathMonth(value.selectedMonth); } catch { /* Keep the safe baseline month. */ }

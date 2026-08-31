@@ -302,7 +302,7 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
       <h1 id="launch-title">See what this door <em>opens next.</em></h1>
       <p>Add a screenshot or link. The agent checks the official rules and shows what the opportunity can create. <b>You decide what joins your path.</b></p>
       <div className="launch-actions">
-        <button className="launch-primary" onClick={onAdd}>START WITH A SCREENSHOT <span>＋</span></button>
+        <button className="launch-primary" onClick={onAdd}>USE A SCREENSHOT IN CHATGPT <span>＋</span></button>
         <button onClick={onDemo}>SEE THE 30-SECOND EXAMPLE <span>→</span></button>
       </div>
       <button className="launch-explain" onClick={onTools}>WHY THIS NEEDS WEBMCP ↗</button>
@@ -368,10 +368,10 @@ function PinProofStage({ state, routes, route, selectedNode, onToggle, onRoute, 
       <div className="map-arrow"><span>FILLS</span><i /></div>
       <div className="proof-bank">
         <small>WORK YOUR GOAL NEEDS</small>
-        {Object.values(scrapbookDetails).map((item) => { const status = attached.has(item.proofId) ? "attached" : planned.has(item.proofId) ? "planned" : "missing"; return <button disabled={status === "missing"} onClick={() => onProof(item.proofId)} className={`${status} ${stagedProof === item.proofId ? "staged" : ""}`} key={item.proofId}><i>{status === "attached" ? "✓" : status === "planned" ? "~" : "+"}</i><b>{status === "attached" ? "ATTACHED" : status === "planned" ? stagedProof === item.proofId ? "REVIEW" : "ADD REAL WORK" : "MISSING"}</b><strong>{item.signal}</strong></button>; })}
+        {Object.values(scrapbookDetails).map((item) => { const status = attached.has(item.proofId) ? "attached" : planned.has(item.proofId) ? "planned" : "missing"; return <button disabled={status === "missing"} onClick={() => onProof(item.proofId)} className={`${status} ${stagedProof === item.proofId ? "staged" : ""}`} key={item.proofId}><i>{status === "attached" ? "✓" : status === "planned" ? "~" : "+"}</i><b>{status === "attached" ? "LINK SAVED" : status === "planned" ? stagedProof === item.proofId ? "REVIEW" : "ADD REAL WORK" : "MISSING"}</b><strong>{item.signal}</strong></button>; })}
       </div>
       <div className="map-arrow"><span>BUILDS</span><i /></div>
-      <div className="pin-goal"><PremiumPortal status={attached.size === 3 ? "ready" : "locked"} /><span><small>GOAL · {state.profile.targetYear}</small><strong>{state.profile.goal}</strong><em>{attached.size} attached · {planned.size} planned</em></span></div>
+      <div className="pin-goal"><PremiumPortal status={attached.size === 3 ? "ready" : "locked"} /><span><small>GOAL · {state.profile.targetYear}</small><strong>{state.profile.goal}</strong><em>{attached.size} link saved · {planned.size} planned</em></span></div>
     </div>
     {state.scenario === "rerouted" ? <div className="reroute-breadcrumb" aria-label="The closed source A path and the separately approved source B path">
       <button onClick={() => onNode(route.nodes[0])}><small>SOURCE A · OFFICIAL RULE</small><strong>Outreachy · NOT ELIGIBLE NOW</strong><b>× THIS PATH ENDS</b></button>
@@ -408,6 +408,14 @@ function ExecutionLedger({ activity }: { activity: Activity[] }) {
   </div>;
 }
 
+function PathReceiptStrip({ activity }: { activity: Activity[] }) {
+  const receipts = activity.filter((item) => item.toolName).slice(0, 2);
+  return <div className="path-receipt-strip" aria-label="Latest agent and human changes">
+    <b>SHARED CHANGES</b>
+    {receipts.map((item) => <span key={item.id} title={`${item.source ?? "shared path"} · ${item.detail}`}><i className={item.actor}>{item.actor === "you" ? "YOU" : item.actor.toUpperCase()}</i><strong>{item.toolName}</strong><small>{item.stateDiff ?? item.label}</small></span>)}
+  </div>;
+}
+
 function EditorialDecision({ state, route, onTake, onMiss, onRepair, onReset }: { state: FutureDoorsState; route: Route; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void }) {
   const last = state.activity[0];
   const firstDoor = route.nodes[0];
@@ -428,7 +436,7 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
   return <section className="editorial-workspace">
     <header className="editorial-hero">
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>FROM A SAVED POST TO A REAL NEXT MOVE</small><h1>Don&apos;t just save it. <em>See where it leads.</em></h1></motion.div>
-      <button className="capture-callout" onClick={onCapture}><span className="capture-glyph"><i>POST</i><b /><em /></span><span><small>START WITH ANY OPPORTUNITY</small><strong>Add a screenshot or link</strong><p>Agent finds the official rules → you choose</p></span><b>＋</b></button>
+      <button className="capture-callout" onClick={onCapture}><span className="capture-glyph"><i>POST</i><b /><em /></span><span><small>CONTINUE IN CHATGPT</small><strong>Share a screenshot or link</strong><p>Agent finds the official rules → you choose</p></span><b>＋</b></button>
     </header>
     <div className="editorial-grid">
       <EditorialProfile state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} />
@@ -444,6 +452,7 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
           </nav>
         </header>
         <PinProofStage state={state} routes={routes} route={route} selectedNode={selectedNode} onToggle={onTogglePriority} onRoute={onRoute} onNode={onNode} onProof={onProof} onTools={onTools} />
+        <PathReceiptStrip activity={state.activity} />
         <EditorialDecision state={state} route={route} onTake={onTake} onMiss={onMiss} onRepair={onRepair} onReset={onReset} />
       </section>
       <aside className="editorial-inspector">
@@ -711,7 +720,7 @@ export default function FutureDoors() {
 
   return <main className="spatial-shell editorial-shell">
     <AnimatePresence>{introVisible ? <OpeningSequence onDone={() => setIntroVisible(false)} /> : null}</AnimatePresence>
-    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → GOAL</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD A SCREENSHOT{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
+    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → GOAL</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD VIA CHATGPT{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
     {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}

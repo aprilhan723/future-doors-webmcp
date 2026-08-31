@@ -81,6 +81,17 @@ describe("path input validation", () => {
     expect(restored.activity).toEqual(cloneInitialState().activity);
     expect(restored.profile.name).toBe("Maya Park");
   });
+
+  it("never restores eligibility-driving profile facts as confirmed approvals", () => {
+    const restored = sanitizePersistedState({
+      profile: { ...cloneInitialState().profile, universityLocation: "Canada", studyStatus: "Working professional" },
+      priorities: ["ship"],
+    });
+    expect(restored.profile.universityLocation).toBe("South Korea");
+    expect(restored.profile.studyStatus).toBe("Undergraduate");
+    expect(buildRoutes(restored).find((route) => route.id === "ship")?.nodes[0].status).toBe("ineligible");
+    expect(restored.priorities).toEqual([]);
+  });
 });
 
 describe("agent output budgets", () => {
