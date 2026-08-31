@@ -317,11 +317,11 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
   return <section className="launch-scene" aria-labelledby="launch-title">
     <motion.div className="launch-copy" initial={{ opacity: 0, x: -26 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .72, ease: [0.16, 1, 0.3, 1] }}>
       <small>ONE SAVED POST → ONE SOURCE-BACKED PATH</small>
-      <h1 id="launch-title">See what this door <em>opens next.</em></h1>
-      <p>Add a screenshot or link. The agent checks the official rules and shows what the opportunity can create. <b>You decide what joins your path.</b></p>
+      <h1 id="launch-title">Add a saved opportunity. <em>Choose your next step.</em></h1>
+      <p>Share a screenshot or link. The agent checks the official rules. <b>You choose what joins your plan.</b></p>
       <div className="launch-actions">
-        <button className="launch-primary" onClick={onAdd}>USE A SCREENSHOT IN CHATGPT <span>＋</span></button>
-        <button onClick={onDemo}>SEE THE 30-SECOND EXAMPLE <span>→</span></button>
+        <button className="launch-primary" onClick={onAdd}>ADD A SCREENSHOT <span>＋</span></button>
+        <button onClick={onDemo}>VIEW EXAMPLE <span>→</span></button>
       </div>
       <button className="launch-explain" onClick={onTools}>WHY THIS NEEDS WEBMCP ↗</button>
     </motion.div>
@@ -342,68 +342,71 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
   </section>;
 }
 
-const scrapbookDetails: Record<RouteId, { apply: string; activity: string; load: string; signal: string }> = {
-  ship: { apply: "Closes Sep 1", activity: "If eligible · 3 months", load: "30 hr / week", signal: "Delivered project" },
-  community: { apply: "Open anytime", activity: "4–8 weeks", load: "5–10 hr / week", signal: "Public collaboration" },
-  research: { apply: "Next cycle", activity: "12+ weeks", load: "6–10 hr / week", signal: "Mentor feedback" },
+const simpleRouteDetails: Record<RouteId, { timing: string; signal: string }> = {
+  community: { timing: "Open now · 5–10 hours a week", signal: "Public collaboration" },
+  research: { timing: "Next cycle · 6–10 hours a week", signal: "Mentor feedback" },
+  ship: { timing: "Not available for this profile", signal: "Delivered project" },
 };
 
-function PinProofStage({ state, routes, route, selectedNode, onToggle, onRoute, onNode, onProof, onTools }: { state: FutureDoorsState; routes: Route[]; route: Route; selectedNode: PathNode; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTools: () => void }) {
+const routeDisplayOrder: RouteId[] = ["community", "research", "ship"];
+
+function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof }: { state: FutureDoorsState; routes: Route[]; selectedNode: PathNode; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onProof: (proofId: ProofId) => void }) {
   const priorities = state.priorities;
   const planned = new Set(priorities.map((id) => ROUTE_PROOF[id]));
   const attached = new Set(state.proofReceipts.map((receipt) => receipt.proofId));
   const covered = new Set([...planned, ...attached]);
-  const stagedProof = state.proofProposal.state === "staged" ? state.proofProposal.proofId : null;
   const proposal = new Set(state.priorityProposal.state === "staged" ? state.priorityProposal.routeIds : []);
-  const sourceBacked = Boolean(selectedNode.sourceUrl && selectedNode.sourceClause);
-  const gapsLeft = Math.max(0, goalSignalCount - covered.size);
-  return <section className={`pin-proof-stage scenario-${state.scenario}`} aria-label="Choose opportunities that create the work your goal needs">
-    <header>
-      <span><small>YOUR GOAL MAP</small><strong>Choose up to two opportunities. See what each one could add.</strong></span>
-      <b>{priorities.length} OF {maxPriorities} SELECTED · {gapsLeft} STILL NEEDED</b>
+  const displayRoutes = routeDisplayOrder.map((id) => routes.find((item) => item.id === id)).filter((item): item is Route => Boolean(item));
+  const selectedReason = selectedNode.status === "ineligible"
+    ? "This opportunity is not available for your confirmed profile."
+    : selectedNode.kind === "bridge"
+      ? "This is an agent connection. You decide whether to add it."
+      : "Use the official page before you make it part of your plan.";
+
+  return <section className={`simple-plan scenario-${state.scenario}`} aria-label="Choose opportunities that build the work your goal needs">
+    <header className="simple-plan-header">
+      <span><small>YOUR NEXT STEPS</small><strong>Pick up to two opportunities.</strong></span>
+      <b>{priorities.length} / {maxPriorities} SELECTED</b>
     </header>
-    <div className="goal-map-board">
-      <div className="goal-map-start"><small>START · NOW</small><strong>{state.profile.name.split(" ")[0]}</strong><span>{state.profile.studyStatus}</span><em>Choose what fits your time.</em></div>
-      <div className="goal-map-matrix" aria-label="Opportunity scrapbook">
-        <div className="goal-map-columns"><span>OPPORTUNITY SCRAPBOOK</span><span>WHAT IT COULD ADD</span></div>
-        {routes.map((item, index) => {
+    <section className="simple-goal-strip" aria-label={`Goal: ${state.profile.goal}`}>
+      <div><small>YOUR GOAL</small><strong>{state.profile.goal}</strong><span>by {state.profile.targetYear}</span></div>
+      <div className="simple-goal-progress" aria-label={`${covered.size} of ${goalSignalCount} work types planned or linked`}>
+        {displayRoutes.map((item) => {
+          const proofId = ROUTE_PROOF[item.id];
+          const stateCopy = attached.has(proofId) ? "linked" : planned.has(proofId) ? "planned" : "needed";
+          return <span className={stateCopy} key={proofId}><i>{stateCopy === "linked" ? "✓" : stateCopy === "planned" ? "●" : "○"}</i>{simpleRouteDetails[item.id].signal}</span>;
+        })}
+      </div>
+    </section>
+    <div className="simple-route-list" aria-label="Recommended opportunities">
+      {displayRoutes.map((item, index) => {
           const node = item.nodes[0];
-          const detail = scrapbookDetails[item.id];
+          const detail = simpleRouteDetails[item.id];
           const proofId = ROUTE_PROOF[item.id];
           const pinned = priorities.includes(item.id);
           const staged = proposal.has(item.id) && !pinned;
           const priority = priorities.indexOf(item.id) + 1;
           const unavailable = node.status === "ineligible" || node.status === "expired" || node.status === "blocked";
           const atLimit = !pinned && priorities.length >= maxPriorities;
-          const proofStatus = attached.has(proofId) ? "attached" : pinned ? "planned" : "missing";
-          const linkCopy = unavailable ? "THIS PATH ENDS" : proofStatus === "attached" ? "LINK SAVED" : pinned ? "CAN CREATE" : "CHOOSE TO PLAN";
-          return <div className={`goal-map-row ${pinned ? "pinned" : ""} ${staged ? "staged" : ""} ${unavailable ? "unavailable" : ""}`} key={item.id}>
-            <motion.article className={item.id === state.selectedRouteId ? "current" : ""} whileHover={{ y: -1 }}>
-              <button className="map-option-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
-                <i>0{index + 1}</i><span><small>{unavailable ? "NOT ELIGIBLE · RULE MISMATCH" : node.status === "checking" ? "CHECK RULES" : "OPEN"}</small><strong>{displayNodeTitle(node)}</strong><dl><div><dt>APPLY</dt><dd>{detail.apply}</dd></div><div><dt>ACTIVITY</dt><dd>{detail.activity}</dd></div><div><dt>LOAD</dt><dd>{detail.load}</dd></div></dl></span>
-              </button>
-              <button className="map-plan-control" disabled={unavailable || atLimit} onClick={() => onToggle(item.id)} aria-label={unavailable ? `${displayNodeTitle(node)} cannot be added to the plan` : atLimit ? `Two opportunities are already selected` : `${pinned ? "Remove" : "Add"} ${displayNodeTitle(node)} ${pinned ? "from" : "to"} the plan`} aria-pressed={pinned}>{unavailable ? "CAN'T PLAN" : pinned ? `SELECTED · ${priority}` : atLimit ? "LIMIT · 2" : staged ? "AGENT SUGGESTED" : "+ ADD TO PLAN"}</button>
-            </motion.article>
-            <div className={`goal-row-link ${unavailable ? "broken" : proofStatus}`}><span>{linkCopy}</span><i /></div>
-            <button className={`goal-signal ${proofStatus} ${stagedProof === proofId ? "staged" : ""}`} disabled={proofStatus === "missing"} onClick={() => onProof(proofId)}><i>{proofStatus === "attached" ? "✓" : proofStatus === "planned" ? "~" : "+"}</i><span><small>{proofStatus === "attached" ? "LINK SAVED · NOT VERIFIED" : proofStatus === "planned" ? stagedProof === proofId ? "REVIEW LINK" : "PLANNED · ADD REAL WORK" : "NEEDED"}</small><strong>{detail.signal}</strong></span></button>
-          </div>;
-        })}
-      </div>
-      <div className="goal-map-target"><small>TARGET · {state.profile.targetYear}</small><PremiumPortal status="locked" /><strong>{state.profile.goal}</strong><div><b>{covered.size} of {goalSignalCount}</b><span>needed work types on the board</span></div><em>{planned.size} planned · {attached.size} {attached.size === 1 ? "link" : "links"} saved</em><p>This tracks work, not odds.</p></div>
+          const proofState = attached.has(proofId) ? "linked" : pinned ? "planned" : "needed";
+          const label = unavailable ? "NOT A FIT" : node.status === "checking" ? "CHECK FIRST" : staged ? "AGENT SUGGESTED" : "RECOMMENDED";
+          return <motion.article className={`simple-route ${pinned ? "pinned" : ""} ${staged ? "staged" : ""} ${unavailable ? "unavailable" : ""} ${item.id === state.selectedRouteId ? "current" : ""}`} key={item.id} whileHover={{ y: -2 }}>
+            <button className="simple-route-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
+              <i>0{index + 1}</i><span><small>{label}</small><strong>{displayNodeTitle(node)}</strong><em>{detail.timing}</em></span>
+            </button>
+            <div className={`simple-route-outcome ${proofState}`}><small>{proofState === "linked" ? "WORK LINK SAVED" : proofState === "planned" ? "THIS WILL BUILD" : "THIS CAN BUILD"}</small><strong>{detail.signal}</strong></div>
+            <div className="simple-route-action">
+              {pinned ? <button className="simple-proof-button" onClick={() => onProof(proofId)}>{proofState === "linked" ? "VIEW LINK" : "ADD WORK LINK"}</button>
+                : unavailable ? (node.sourceUrl ? <a href={node.sourceUrl} target="_blank" rel="noreferrer">VIEW RULE ↗</a> : <span>NOT AVAILABLE</span>)
+                  : <button disabled={atLimit} onClick={() => onToggle(item.id)} aria-label={atLimit ? "Two opportunities are already selected" : `Add ${displayNodeTitle(node)} to the plan`}>{atLimit ? "2 SELECTED" : "+ ADD TO PLAN"}</button>}
+              {pinned ? <small>SELECTED · {priority}</small> : null}
+            </div>
+          </motion.article>;
+      })}
     </div>
-    {state.scenario === "rerouted" ? <div className="reroute-breadcrumb" aria-label="The closed source A path and the separately approved source B path">
-      <button onClick={() => onNode(route.nodes[0])}><small>SOURCE A · OFFICIAL RULE</small><strong>Outreachy · NOT ELIGIBLE NOW</strong><b>× THIS PATH ENDS</b></button>
-      <i>YOU APPROVE<br />A DIFFERENT OPTION ↓</i>
-      <button className="source-b" onClick={() => onNode(route.nodes[1])}><small>SOURCE B · OFFICIAL PAGE</small><strong>Open-source contribution</strong><b>AGENT LINKS IT TO YOUR GOAL · PLANNED</b></button>
-    </div> : <div className="selected-path-summary" aria-label="Selected opportunity and next step">
-      <button className="selected-path-option" onClick={() => onNode(route.nodes[0])}><small>SELECTED TO REVIEW</small><strong>{displayNodeTitle(route.nodes[0])}</strong></button>
-      <i className={route.nodes[0].status === "ineligible" || route.nodes[0].status === "expired" || route.nodes[0].status === "blocked" ? "broken" : ""}>{route.nodes[0].status === "ineligible" ? "RULE MISMATCH" : "COULD CREATE"}</i>
-      <button onClick={() => onNode(route.nodes[1])}><small>NEXT WORK NEEDED</small><strong>{displayNodeTitle(route.nodes[1])}</strong></button>
-    </div>}
-    <footer className={`pin-proof-source ${selectedNode.status === "ineligible" ? "mismatch" : sourceBacked ? "checked" : "planned"}`}>
-      <span>{selectedNode.status === "ineligible" ? "× RULE DOES NOT MATCH" : selectedNode.kind === "bridge" ? "SOURCE B · AGENT'S CONNECTION" : sourceBacked ? "SOURCE FOUND" : "PATH LOGIC"}</span>
-      <p>{selectedNode.sourceClause ?? selectedNode.edgeToNext?.label ?? selectedNode.description}</p>
-      {selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OPEN SOURCE ↗</a> : <button onClick={onTools}>HOW IT WAS CHECKED ↗</button>}
+    <footer className="simple-plan-source">
+      <span>{selectedReason}</span>
+      {selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">VIEW OFFICIAL RULE ↗</a> : null}
     </footer>
   </section>;
 }
@@ -421,69 +424,24 @@ function EditorialProfile({ state, cvName, onUpload, onReview, onGoal }: { state
   </aside>;
 }
 
-function ExecutionLedger({ activity }: { activity: Activity[] }) {
-  return <div className="execution-ledger" aria-label="Latest shared path changes">
-    <header><small>EXECUTION RECEIPTS</small><b>AGENT STAGES · YOU APPROVE</b></header>
-    {activity.slice(0, 4).map((item) => { const receipt = [item.stateDiff ?? item.label, item.source ?? "shared path", item.detail].join(" · "); return <div key={item.id} title={receipt}><span className={item.actor}>{item.actor.toUpperCase()}</span><p><strong>{item.toolName ?? item.label}</strong><small>{receipt}</small></p><time>{item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "SAMPLE"}</time></div>; })}
-  </div>;
-}
-
-function PathReceiptStrip({ activity }: { activity: Activity[] }) {
-  const receipts = activity.filter((item) => item.toolName).slice(0, 2);
-  return <div className="path-receipt-strip" aria-label="Latest agent and human changes">
-    <b>SHARED CHANGES</b>
-    {receipts.map((item) => <span key={item.id} title={`${item.source ?? "shared path"} · ${item.detail}`}><i className={item.actor}>{item.actor === "you" ? "YOU" : item.actor.toUpperCase()}</i><strong>{item.toolName}</strong><small>{item.stateDiff ?? item.label}</small></span>)}
-  </div>;
-}
-
-function EditorialDecision({ state, route, onTake, onMiss, onRepair, onReset }: { state: FutureDoorsState; route: Route; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void }) {
-  const last = state.activity[0];
-  const firstDoor = route.nodes[0];
-  const status = <em className={`change-author ${last?.actor ?? "system"}`}>LAST CHANGE · {last?.actor.toUpperCase() ?? "SYSTEM"} · {last?.label ?? "Path ready"}</em>;
-  if (route.id !== "ship") return <div className="editorial-decision"><span><small>ANOTHER ROUTE</small><strong>{route.summary}</strong>{status}</span><button onClick={onReset}>BACK TO BEST ROUTE</button></div>;
-  if (state.scenario === "rerouted") return <div className="editorial-decision success"><span><small>ALTERNATIVE PLANNED</small><strong>Outreachy stays closed · public proof plan {state.bridge.eta}.</strong>{status}</span><button onClick={onReset}>TRY AGAIN</button></div>;
-  if (firstDoor.status === "ineligible") return <div className="editorial-decision danger"><span><small>OFFICIAL RULE DOES NOT MATCH</small><strong>This door stays closed. Plan a different proof path.</strong>{status}</span><button className="accent" onClick={onRepair}>PLAN ANOTHER ROUTE →</button></div>;
-  if (firstDoor.status === "checking") return <div className="editorial-decision danger"><span><small>ONE FACT STILL NEEDS CONFIRMING</small><strong>This door cannot be taken yet.</strong>{status}</span><button onClick={onReset}>KEEP CHECKING</button></div>;
-  if (state.scenario === "miss") return <div className="editorial-decision danger"><span><small>THE PATH STOPS HERE</small><strong>The next step has no proof to use.</strong>{status}</span><button className="accent" onClick={onRepair}>FIND A DETOUR →</button><button onClick={onReset}>RESET</button></div>;
-  if (state.scenario === "take") return <div className="editorial-decision success"><span><small>SIMULATED RESULT</small><strong>No work link is saved by a simulation.</strong>{status}</span><button onClick={onReset}>TRY AGAIN</button></div>;
-  return <div className="editorial-decision"><span><small>TRY THE FUTURE</small><strong>What happens to the path?</strong>{status}</span><button className="accent" onClick={onTake}>TAKE THIS DOOR →</button><button onClick={onMiss}>SKIP IT</button></div>;
-}
-
-function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUpload, onReview, onGoal, onRoute, onTogglePriority, onNode, onProof, onTake, onMiss, onRepair, onReset, onWhy, onTools, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
-  const sourceBacked = Boolean(selectedNode.sourceUrl && selectedNode.sourceClause);
-  const proposedSource = selectedNode.kind === "bridge";
-  const uploadRef = useRef<HTMLInputElement>(null);
+function EditorialWorkspace({ state, routes, selectedNode, cvName, onUpload, onReview, onGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
   return <section className="editorial-workspace">
     <header className="editorial-hero">
-      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>FROM A SAVED POST TO A REAL NEXT MOVE</small><h1>Don&apos;t just save it. <em>See where it leads.</em></h1></motion.div>
-      <button className="capture-callout" onClick={onCapture}><span className="capture-glyph"><i>POST</i><b /><em /></span><span><small>CONTINUE IN CHATGPT</small><strong>Share a screenshot or link</strong><p>Agent finds the official rules → you choose</p></span><b>＋</b></button>
+      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>SAVED POST → REAL PLAN</small><h1>Choose your <em>next step.</em></h1></motion.div>
+      <button className="capture-callout" onClick={onCapture}><span className="capture-glyph"><i>POST</i><b /><em /></span><span><small>ADD AN OPPORTUNITY</small><strong>Screenshot or link</strong></span><b>＋</b></button>
     </header>
     <div className="editorial-grid">
       <EditorialProfile state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} />
       <section className="door-theater" aria-label="Your source-backed opportunity path">
         <header>
-          <div><small>YOUR WHOLE PATH</small><h2>{state.scenario === "rerouted" ? "A closed door ends. A different proof path begins." : "One door creates what the next door needs."}</h2></div>
-          <input ref={uploadRef} hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); }} />
+          <div><small>YOUR PLAN</small><h2>Choose the opportunities that move you toward your goal.</h2></div>
           <nav className="theater-actions" aria-label="Path inputs">
-            <button onClick={onReview}>YOU · {state.profile.name.split(" ")[0]} · {state.profile.age} · {state.profile.residence}</button>
-            <button onClick={onGoal}>GOAL · {state.profile.goal} · {state.profile.targetYear}</button>
-            <button onClick={() => uploadRef.current?.click()}>CV · {cvName.startsWith("Sample") ? "TRY" : "READY"}</button>
-            <button onClick={onWhy}>WHY THIS ROUTE ↗</button>
+            <button onClick={onReview}>EDIT PROFILE</button>
+            <button onClick={onGoal}>EDIT GOAL</button>
           </nav>
         </header>
-        <PinProofStage state={state} routes={routes} route={route} selectedNode={selectedNode} onToggle={onTogglePriority} onRoute={onRoute} onNode={onNode} onProof={onProof} onTools={onTools} />
-        <PathReceiptStrip activity={state.activity} />
-        <EditorialDecision state={state} route={route} onTake={onTake} onMiss={onMiss} onRepair={onRepair} onReset={onReset} />
+        <PinProofStage state={state} routes={routes} selectedNode={selectedNode} onToggle={onTogglePriority} onRoute={onRoute} onProof={onProof} />
       </section>
-      <aside className="editorial-inspector">
-        <header><small>CHECK THIS STEP</small><b className={selectedNode.status}>{cardStatus(selectedNode)}</b></header>
-        <motion.div key={selectedNode.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <span className="inspector-number">0{Math.min(selectedNode.stage, 9)}</span><h3>{displayNodeTitle(selectedNode)}</h3><p>{selectedNode.description}</p>
-        </motion.div>
-        <section><header><small>{proposedSource ? "AGENT'S CONNECTION" : sourceBacked ? "OFFICIAL RULE" : "PATH LOGIC"}</small><span>{selectedNode.status === "ineligible" ? "DOES NOT MATCH" : proposedSource ? "YOU APPROVED" : sourceBacked ? "SOURCE FOUND" : "PLANNED"}</span></header><p>{selectedNode.sourceClause ?? selectedNode.edgeToNext?.label ?? "A direction, never a prediction."}</p>{selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OPEN SOURCE ↗</a> : null}</section>
-        <ExecutionLedger activity={state.activity} />
-        <button onClick={onTools}>HOW THE AGENT HELPS ↗</button>
-      </aside>
     </div>
   </section>;
 }
