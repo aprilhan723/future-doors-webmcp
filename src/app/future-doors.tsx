@@ -312,6 +312,7 @@ function JourneyObject({ node }: { node: PathNode }) {
 }
 
 const journeyLinks = ["CREATES", "OPENS", "BUILDS TOWARD"] as const;
+const priorityStorageKey = "future-doors:priorities:v1";
 
 const scrapbookDetails: Record<RouteId, { apply: string; activity: string; load: string; signal: string }> = {
   ship: { apply: "By Sep 4", activity: "4-day sprint", load: "HIGH", signal: "Shipped product" },
@@ -406,7 +407,24 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
   const proposedSource = selectedNode.kind === "bridge";
   const [priorities, setPriorities] = useState<RouteId[]>(["ship"]);
   const uploadRef = useRef<HTMLInputElement>(null);
-  const togglePriority = (id: RouteId) => setPriorities((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length < 3 ? [...current, id] : current);
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(priorityStorageKey) ?? "[]");
+      if (Array.isArray(saved)) {
+        const valid = saved.filter((id): id is RouteId => id === "ship" || id === "community" || id === "research").slice(0, 3);
+        if (valid.length > 0) window.queueMicrotask(() => { if (!cancelled) setPriorities(valid); });
+      }
+    } catch {
+      // Keep the safe demo default when storage is unavailable or malformed.
+    }
+    return () => { cancelled = true; };
+  }, []);
+  const togglePriority = (id: RouteId) => setPriorities((current) => {
+    const next = current.includes(id) ? current.filter((item) => item !== id) : current.length < 3 ? [...current, id] : current;
+    try { window.localStorage.setItem(priorityStorageKey, JSON.stringify(next)); } catch { /* The visible choice still works without storage. */ }
+    return next;
+  });
   return <section className="editorial-workspace">
     <header className="editorial-hero">
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>FROM A SAVED POST TO A REAL NEXT MOVE</small><h1>Don&apos;t just save it. <em>See where it leads.</em></h1></motion.div>
