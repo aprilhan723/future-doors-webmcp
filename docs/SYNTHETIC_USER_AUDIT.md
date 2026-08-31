@@ -1,8 +1,22 @@
 # Future Doors — synthetic user audit
 
-Last run: 2026-08-29 KST
+Last run: 2026-08-31 KST
 
 This is a structured stress test, not real user research and not statistical evidence of demand.
+
+## 2026-08-31 goal-map follow-up
+
+A separate 36-person synthetic panel covered students, job seekers, international students, career switchers, mobile users, people with low vision, people with ADHD, and non-native English speakers. Twenty-seven preferred a single row that directly joins an opportunity, its application window, activity length, weekly load, and the work it could add; five were neutral and four preferred the previous split board.
+
+The follow-up changed the central board accordingly:
+
+- One opportunity and the work it could add now share a row.
+- A person can choose no more than two opportunities.
+- A selected row becomes solid and a missing work type stays dotted, with text labels in addition to color and line style.
+- The target says “needed work types on the board” and “This tracks work, not odds” so the count cannot be mistaken for a success probability.
+- The mobile layout groups each opportunity with its matching work type instead of shrinking the desktop canvas.
+
+This panel was simulated. It does not replace the five real task-based sessions listed below.
 
 ## Population
 

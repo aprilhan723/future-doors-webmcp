@@ -19,11 +19,12 @@ If the official rule does not match, the door is actually blocked: it cannot be 
 1. A screenshot becomes a saved opportunity only after the agent finds its official source.
 2. The page shows the exact deadline, the rules that matter, one missing fact, and whether the result helps the next step.
 3. Up to seven opportunities stay saved without overwriting one another.
-4. Confirmed profile facts, a goal, and the work each step produces make the route explainable.
-5. A rule mismatch visibly closes the door and prevents a false success simulation.
-6. The agent proposes a different proof path; only the person can approve it.
-7. A direct PR, review, demo, or portfolio URL can move one proof slot from `PLANNED` to `ATTACHED`; the change remains human-approved and visible in the execution receipts.
-8. Planned, simulated, attached, and independently verified evidence are never treated as the same state.
+4. The goal map puts each opportunity beside its application window, activity length, weekly load, and the work it could add.
+5. The person can select at most two opportunities; selected paths are solid and missing work stays dotted and labeled.
+6. A rule mismatch visibly closes the row and prevents a false success simulation.
+7. The agent proposes a different proof path; only the person can approve it.
+8. A direct PR, review, demo, or portfolio URL can move one work type from `PLANNED` to `LINK SAVED · NOT VERIFIED`; the change remains human-approved and visible in the shared changes.
+9. Planned, simulated, saved, and independently verified work are never treated as the same state.
 
 Simulations never become profile facts. Paths never claim to predict acceptance or hiring.
 

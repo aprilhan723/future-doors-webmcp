@@ -43,9 +43,9 @@ When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) 
 - An opportunity with an unanswered fact or an output unrelated to the next step cannot be put on the path.
 - Only the person can move a ready opportunity from the saved list onto the path.
 - An official rule mismatch blocks take and pin actions instead of remaining a decorative warning.
-- Source facts, agent inference, planned work, simulated results, attached links, and independently verified proof are never presented as the same state.
+- Source facts, agent inference, planned work, simulated results, saved work links, and independently verified proof are never presented as the same state.
 - A separate proof path cannot claim to restore eligibility for a closed program.
-- A proof slot becomes `ATTACHED` only after a direct HTTPS artifact is staged and the person approves it; attachment does not verify ownership or quality, and the execution receipt keeps actor, tool, source, state change, and time visible.
+- A proof slot is shown as `LINK SAVED · NOT VERIFIED` only after a direct HTTPS work link is staged and the person approves it; saving does not verify ownership or quality, and the shared change keeps actor, tool, source, state change, and time visible.
 - The demo shows the complete chain: saved post → official rule mismatch → blocked action → agent-staged alternative → human approval → planned proof toward the goal.
 
 ## WebMCP implementation audit
@@ -83,7 +83,7 @@ Test both direct and ambiguous prompts, correct ordering, parameters, UI updates
 9. “Find the official source for this opportunity screenshot and add it for review.”
    - Expected: external source research → `stage_opportunity_from_source`; the website shows what was checked and requires human approval.
 10. “Use this pull request as evidence for my planned public-collaboration proof.”
-   - Expected: `get_path_snapshot` → `stage_proof_receipt`; the website shows the direct artifact and requires a human click before `PLANNED → ATTACHED`.
+   - Expected: `get_path_snapshot` → `stage_proof_receipt`; the website shows the direct work link and requires a human click before `PLANNED → LINK SAVED`.
 
 Automated coverage lives in `src/lib/webmcp.test.ts`, `src/lib/future-map.test.ts`, and `evals/webmcp-journeys.json`. Run it with `npm test`.
 
@@ -96,7 +96,7 @@ Automated coverage lives in `src/lib/webmcp.test.ts`, `src/lib/future-map.test.t
 5. **80–98s:** Approve P1 in the human interface; show the proof gap update on the same screen.
 6. **98–118s:** Agent stages a separate source-backed contribution plan. Show Source B fact and the agent inference as different labels.
 7. **118–130s:** Approve it in the UI; Outreachy remains closed and the new output remains `PLANNED`.
-8. **130–145s:** Stage one direct PR URL with `stage_proof_receipt`, approve it in the UI, and show `Public collaboration · ATTACHED` plus the execution receipts.
+8. **130–145s:** Stage one direct PR URL with `stage_proof_receipt`, approve it in the UI, and show `Public collaboration · LINK SAVED · NOT VERIFIED` plus the shared changes.
 9. **145–155s:** Show the fifteen registered WebMCP tools and the human-only approval guardrails.
 
 The demo should show the product working in the first 10–15 seconds. Do not begin with architecture or a tool-name list.

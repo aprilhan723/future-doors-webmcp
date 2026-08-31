@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { AnimatedBackground, AnimatedGroup, Spotlight, Tilt } from "@/components/motion-primitives";
 import {
   PATH_START,
+  ROUTE_PROOF,
   buildRoutes,
   cloneInitialState,
   downstreamEffect,
@@ -37,6 +38,7 @@ import {
 
 type Modal = "bridge" | "capture" | "tools" | "goal" | "profile" | "why" | "priority" | "proof" | null;
 const stateStorageKey = "future-doors:shared-path:v4";
+const maxPriorities = 2;
 
 const routeNames: Record<RouteId, { label: string; short: string; reason: string }> = {
   ship: { label: "Build & ship", short: "SHIP", reason: "Fastest proof" },
@@ -49,6 +51,7 @@ const proofLabels: Record<ProofId, string> = {
   public_collaboration: "Public collaboration",
   mentor_feedback: "Mentor feedback",
 };
+const goalSignalCount = Object.keys(proofLabels).length;
 
 function workLinkMeta(artifactUrl: string, proofId: ProofId) {
   try {
@@ -87,6 +90,21 @@ function displayNodeTitle(node: PathNode) {
 
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function validatePriorityPlan(state: FutureDoorsState, routeIds: RouteId[]) {
+  const unique = [...new Set(routeIds)];
+  if (unique.length === 0) throw new Error("[EMPTY_PRIORITY_PLAN] Choose at least one opportunity.");
+  if (unique.length > maxPriorities) throw new Error(`[TOO_MANY_PRIORITIES] Choose no more than ${maxPriorities} opportunities.`);
+  const routes = new Map(buildRoutes(state).map((route) => [route.id, route]));
+  for (const id of unique) {
+    const status = routes.get(id)?.nodes[0]?.status;
+    if (!status) throw new Error(`[INVALID_ROUTE_ID] Unknown opportunity route: ${id}.`);
+    if (status === "ineligible" || status === "expired" || status === "blocked") {
+      throw new Error(`[UNAVAILABLE_PRIORITY] ${routeNames[id].label} cannot be added to the plan in its current state.`);
+    }
+  }
+  return unique;
 }
 
 function DoorGlyph({ status }: { status: PathNode["status"] }) {
@@ -324,61 +342,63 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
   </section>;
 }
 
-const journeyLinks = ["CREATES", "OPENS", "BUILDS TOWARD"] as const;
-
-const scrapbookDetails: Record<RouteId, { apply: string; activity: string; load: string; signal: string; proofId: ProofId }> = {
-  ship: { apply: "By Sep 1", activity: "Application + contribution", load: "30H/WK IF SELECTED", signal: "Delivered project", proofId: "delivered_project" },
-  community: { apply: "Any time", activity: "4–8 weeks", load: "5–10H/WK", signal: "Public collaboration", proofId: "public_collaboration" },
-  research: { apply: "Next cycle", activity: "12+ weeks", load: "6–10H/WK", signal: "Mentor feedback", proofId: "mentor_feedback" },
+const scrapbookDetails: Record<RouteId, { apply: string; activity: string; load: string; signal: string }> = {
+  ship: { apply: "Closes Sep 1", activity: "If eligible · 3 months", load: "30 hr / week", signal: "Delivered project" },
+  community: { apply: "Open anytime", activity: "4–8 weeks", load: "5–10 hr / week", signal: "Public collaboration" },
+  research: { apply: "Next cycle", activity: "12+ weeks", load: "6–10 hr / week", signal: "Mentor feedback" },
 };
 
 function PinProofStage({ state, routes, route, selectedNode, onToggle, onRoute, onNode, onProof, onTools }: { state: FutureDoorsState; routes: Route[]; route: Route; selectedNode: PathNode; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTools: () => void }) {
   const priorities = state.priorities;
-  const planned = new Set(priorities.map((id) => scrapbookDetails[id].proofId));
+  const planned = new Set(priorities.map((id) => ROUTE_PROOF[id]));
   const attached = new Set(state.proofReceipts.map((receipt) => receipt.proofId));
   const covered = new Set([...planned, ...attached]);
   const stagedProof = state.proofProposal.state === "staged" ? state.proofProposal.proofId : null;
   const proposal = new Set(state.priorityProposal.state === "staged" ? state.priorityProposal.routeIds : []);
   const sourceBacked = Boolean(selectedNode.sourceUrl && selectedNode.sourceClause);
+  const gapsLeft = Math.max(0, goalSignalCount - covered.size);
   return <section className={`pin-proof-stage scenario-${state.scenario}`} aria-label="Choose opportunities that create the work your goal needs">
     <header>
-      <span><small>TURN SAVES INTO A PATH</small><strong>Choose only what fills the gap.</strong></span>
-      <b>{priorities.length}/2 PRIORITIES · {3 - covered.size} GAPS LEFT</b>
+      <span><small>YOUR GOAL MAP</small><strong>Choose up to two opportunities. See what each one could add.</strong></span>
+      <b>{priorities.length} OF {maxPriorities} SELECTED · {gapsLeft} STILL NEEDED</b>
     </header>
-    <div className="pin-proof-map">
-      <div className="pin-start"><small>YOU · NOW</small><strong>{state.profile.name.split(" ")[0]}</strong><span>{state.profile.studyStatus}</span></div>
-      <div className="map-arrow"><span>CHOOSE</span><i /></div>
-      <div className="saved-stack" aria-label="Saved opportunities">
-        <small>YOUR SAVED OPTIONS</small>
+    <div className="goal-map-board">
+      <div className="goal-map-start"><small>START · NOW</small><strong>{state.profile.name.split(" ")[0]}</strong><span>{state.profile.studyStatus}</span><em>Choose what fits your time.</em></div>
+      <div className="goal-map-matrix" aria-label="Opportunity scrapbook">
+        <div className="goal-map-columns"><span>OPPORTUNITY SCRAPBOOK</span><span>WHAT IT COULD ADD</span></div>
         {routes.map((item, index) => {
           const node = item.nodes[0];
           const detail = scrapbookDetails[item.id];
+          const proofId = ROUTE_PROOF[item.id];
           const pinned = priorities.includes(item.id);
           const staged = proposal.has(item.id) && !pinned;
           const priority = priorities.indexOf(item.id) + 1;
           const unavailable = node.status === "ineligible" || node.status === "expired" || node.status === "blocked";
-          return <motion.article key={item.id} className={`${pinned ? "pinned" : ""} ${staged ? "staged" : ""} ${unavailable ? "unavailable" : ""} ${item.id === state.selectedRouteId ? "current" : ""}`} whileHover={{ x: 2 }}>
-            <button className="saved-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
-              <i>0{index + 1}</i><span><strong>{displayNodeTitle(node)}</strong><small>APPLY {detail.apply} · {detail.activity} · {detail.load}</small></span>
-            </button>
-            <button className="pin-control" disabled={unavailable} onClick={() => onToggle(item.id)} aria-label={unavailable ? `${displayNodeTitle(node)} cannot be pinned` : `${pinned ? "Remove" : "Pin"} ${displayNodeTitle(node)}`} aria-pressed={pinned}>{unavailable ? "CLOSED" : pinned ? `P${priority}` : staged ? "AGENT?" : "+ PIN"}</button>
-          </motion.article>;
+          const atLimit = !pinned && priorities.length >= maxPriorities;
+          const proofStatus = attached.has(proofId) ? "attached" : pinned ? "planned" : "missing";
+          const linkCopy = unavailable ? "THIS PATH ENDS" : proofStatus === "attached" ? "LINK SAVED" : pinned ? "CAN CREATE" : "CHOOSE TO PLAN";
+          return <div className={`goal-map-row ${pinned ? "pinned" : ""} ${staged ? "staged" : ""} ${unavailable ? "unavailable" : ""}`} key={item.id}>
+            <motion.article className={item.id === state.selectedRouteId ? "current" : ""} whileHover={{ y: -1 }}>
+              <button className="map-option-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
+                <i>0{index + 1}</i><span><small>{unavailable ? "NOT ELIGIBLE · RULE MISMATCH" : node.status === "checking" ? "CHECK RULES" : "OPEN"}</small><strong>{displayNodeTitle(node)}</strong><dl><div><dt>APPLY</dt><dd>{detail.apply}</dd></div><div><dt>ACTIVITY</dt><dd>{detail.activity}</dd></div><div><dt>LOAD</dt><dd>{detail.load}</dd></div></dl></span>
+              </button>
+              <button className="map-plan-control" disabled={unavailable || atLimit} onClick={() => onToggle(item.id)} aria-label={unavailable ? `${displayNodeTitle(node)} cannot be added to the plan` : atLimit ? `Two opportunities are already selected` : `${pinned ? "Remove" : "Add"} ${displayNodeTitle(node)} ${pinned ? "from" : "to"} the plan`} aria-pressed={pinned}>{unavailable ? "CAN'T PLAN" : pinned ? `SELECTED · ${priority}` : atLimit ? "LIMIT · 2" : staged ? "AGENT SUGGESTED" : "+ ADD TO PLAN"}</button>
+            </motion.article>
+            <div className={`goal-row-link ${unavailable ? "broken" : proofStatus}`}><span>{linkCopy}</span><i /></div>
+            <button className={`goal-signal ${proofStatus} ${stagedProof === proofId ? "staged" : ""}`} disabled={proofStatus === "missing"} onClick={() => onProof(proofId)}><i>{proofStatus === "attached" ? "✓" : proofStatus === "planned" ? "~" : "+"}</i><span><small>{proofStatus === "attached" ? "LINK SAVED · NOT VERIFIED" : proofStatus === "planned" ? stagedProof === proofId ? "REVIEW LINK" : "PLANNED · ADD REAL WORK" : "NEEDED"}</small><strong>{detail.signal}</strong></span></button>
+          </div>;
         })}
       </div>
-      <div className="map-arrow"><span>FILLS</span><i /></div>
-      <div className="proof-bank">
-        <small>WORK YOUR GOAL NEEDS</small>
-        {Object.values(scrapbookDetails).map((item) => { const status = attached.has(item.proofId) ? "attached" : planned.has(item.proofId) ? "planned" : "missing"; return <button disabled={status === "missing"} onClick={() => onProof(item.proofId)} className={`${status} ${stagedProof === item.proofId ? "staged" : ""}`} key={item.proofId}><i>{status === "attached" ? "✓" : status === "planned" ? "~" : "+"}</i><b>{status === "attached" ? "LINK SAVED" : status === "planned" ? stagedProof === item.proofId ? "REVIEW" : "ADD REAL WORK" : "MISSING"}</b><strong>{item.signal}</strong></button>; })}
-      </div>
-      <div className="map-arrow"><span>BUILDS</span><i /></div>
-      <div className="pin-goal"><PremiumPortal status={attached.size === 3 ? "ready" : "locked"} /><span><small>GOAL · {state.profile.targetYear}</small><strong>{state.profile.goal}</strong><em>{attached.size} link saved · {planned.size} planned</em></span></div>
+      <div className="goal-map-target"><small>TARGET · {state.profile.targetYear}</small><PremiumPortal status="locked" /><strong>{state.profile.goal}</strong><div><b>{covered.size} of {goalSignalCount}</b><span>needed work types on the board</span></div><em>{planned.size} planned · {attached.size} {attached.size === 1 ? "link" : "links"} saved</em><p>This tracks work, not odds.</p></div>
     </div>
     {state.scenario === "rerouted" ? <div className="reroute-breadcrumb" aria-label="The closed source A path and the separately approved source B path">
       <button onClick={() => onNode(route.nodes[0])}><small>SOURCE A · OFFICIAL RULE</small><strong>Outreachy · NOT ELIGIBLE NOW</strong><b>× THIS PATH ENDS</b></button>
       <i>YOU APPROVE<br />A DIFFERENT OPTION ↓</i>
       <button className="source-b" onClick={() => onNode(route.nodes[1])}><small>SOURCE B · OFFICIAL PAGE</small><strong>Open-source contribution</strong><b>AGENT LINKS IT TO YOUR GOAL · PLANNED</b></button>
-    </div> : <div className="causal-breadcrumb" aria-label="Selected opportunity chain">
-      {route.nodes.map((node, index) => <span key={node.id}><button className={node.id === selectedNode.id ? "selected" : ""} onClick={() => onNode(node)}><small>{cardStatus(node)}</small><strong>{displayNodeTitle(node)}</strong></button>{index < route.nodes.length - 1 ? <i className={state.scenario === "miss" && index === 0 ? "broken" : ""}>{state.scenario === "miss" && index === 0 ? "BREAKS" : journeyLinks[index]}</i> : null}</span>)}
+    </div> : <div className="selected-path-summary" aria-label="Selected opportunity and next step">
+      <button className="selected-path-option" onClick={() => onNode(route.nodes[0])}><small>SELECTED TO REVIEW</small><strong>{displayNodeTitle(route.nodes[0])}</strong></button>
+      <i className={route.nodes[0].status === "ineligible" || route.nodes[0].status === "expired" || route.nodes[0].status === "blocked" ? "broken" : ""}>{route.nodes[0].status === "ineligible" ? "RULE MISMATCH" : "COULD CREATE"}</i>
+      <button onClick={() => onNode(route.nodes[1])}><small>NEXT WORK NEEDED</small><strong>{displayNodeTitle(route.nodes[1])}</strong></button>
     </div>}
     <footer className={`pin-proof-source ${selectedNode.status === "ineligible" ? "mismatch" : sourceBacked ? "checked" : "planned"}`}>
       <span>{selectedNode.status === "ineligible" ? "× RULE DOES NOT MATCH" : selectedNode.kind === "bridge" ? "SOURCE B · AGENT'S CONNECTION" : sourceBacked ? "SOURCE FOUND" : "PATH LOGIC"}</span>
@@ -425,7 +445,7 @@ function EditorialDecision({ state, route, onTake, onMiss, onRepair, onReset }: 
   if (firstDoor.status === "ineligible") return <div className="editorial-decision danger"><span><small>OFFICIAL RULE DOES NOT MATCH</small><strong>This door stays closed. Plan a different proof path.</strong>{status}</span><button className="accent" onClick={onRepair}>PLAN ANOTHER ROUTE →</button></div>;
   if (firstDoor.status === "checking") return <div className="editorial-decision danger"><span><small>ONE FACT STILL NEEDS CONFIRMING</small><strong>This door cannot be taken yet.</strong>{status}</span><button onClick={onReset}>KEEP CHECKING</button></div>;
   if (state.scenario === "miss") return <div className="editorial-decision danger"><span><small>THE PATH STOPS HERE</small><strong>The next step has no proof to use.</strong>{status}</span><button className="accent" onClick={onRepair}>FIND A DETOUR →</button><button onClick={onReset}>RESET</button></div>;
-  if (state.scenario === "take") return <div className="editorial-decision success"><span><small>SIMULATED RESULT</small><strong>No proof is attached by a simulation.</strong>{status}</span><button onClick={onReset}>TRY AGAIN</button></div>;
+  if (state.scenario === "take") return <div className="editorial-decision success"><span><small>SIMULATED RESULT</small><strong>No work link is saved by a simulation.</strong>{status}</span><button onClick={onReset}>TRY AGAIN</button></div>;
   return <div className="editorial-decision"><span><small>TRY THE FUTURE</small><strong>What happens to the path?</strong>{status}</span><button className="accent" onClick={onTake}>TAKE THIS DOOR →</button><button onClick={onMiss}>SKIP IT</button></div>;
 }
 
@@ -524,15 +544,15 @@ function ProofModal({ state, proofId, onApprove, onClose }: { state: FutureDoors
   const title = keptProposal?.title ?? derived.title;
   const sourceLabel = keptProposal?.sourceLabel ?? derived.sourceLabel;
   const ready = verificationNote.trim().length >= 12 && artifactUrl.trim().startsWith("https://");
-  return <ModalFrame label={staged ? "AGENT STAGED · YOU DECIDE" : existing ? "ATTACHED LINK · REPLACE CAREFULLY" : "PLANNED → ATTACHED"} title={`Add real work · ${proofLabels[proofId]}`} onClose={onClose} className="proof-modal">
-    <div className={`trust-banner ${staged ? "proposal" : ""}`}><b>{staged ? "Human approval required" : "A direct work link is required"}</b><span>{staged ? "The agent found this link. Approving only attaches it; it does not verify ownership or quality." : "Paste the direct PR, review, demo, or portfolio URL. Attached means saved for review, not independently verified."}</span></div>
+  return <ModalFrame label={staged ? "AGENT STAGED · YOU DECIDE" : existing ? "SAVED WORK LINK · REPLACE CAREFULLY" : "PLANNED → LINK SAVED"} title={`Save work link · ${proofLabels[proofId]}`} onClose={onClose} className="proof-modal">
+    <div className={`trust-banner ${staged ? "proposal" : ""}`}><b>{staged ? "Human approval required" : "A direct work link is required"}</b><span>{staged ? "The agent found this link. Approving only saves it for review; it does not verify ownership or quality." : "Paste the direct PR, review, demo, or portfolio URL. Saved means ready for review, not independently verified."}</span></div>
     <div className="modal-fields">
       <label className="wide">Direct work link<input autoFocus value={artifactUrl} onChange={(event) => setArtifactUrl(event.target.value)} placeholder="https://github.com/.../pull/123" /></label>
       <div className="wide proof-auto-label"><small>SHOWN AS</small><strong>{title}</strong><span>{sourceLabel}</span></div>
       <label className="wide">What does this link show?<input value={verificationNote} onChange={(event) => setVerificationNote(event.target.value)} placeholder="A public contribution and its review trail." /></label>
     </div>
     <p className="modal-note">This saves the link for review. It does not verify ownership, quality, acceptance, or skill level.</p>
-    <footer><button onClick={onClose}>CANCEL</button><button disabled={!ready} className="primary" onClick={() => onApprove({ proofId, title: title.trim(), artifactUrl: artifactUrl.trim(), sourceLabel: sourceLabel.trim(), verificationNote: verificationNote.trim() })}>{staged ? "APPROVE & ATTACH" : "ATTACH WORK LINK"}</button></footer>
+    <footer><button onClick={onClose}>CANCEL</button><button disabled={!ready} className="primary" onClick={() => onApprove({ proofId, title: title.trim(), artifactUrl: artifactUrl.trim(), sourceLabel: sourceLabel.trim(), verificationNote: verificationNote.trim() })}>{staged ? "APPROVE & SAVE LINK" : "SAVE WORK LINK"}</button></footer>
   </ModalFrame>;
 }
 
@@ -570,16 +590,47 @@ function WhyModal({ route, profile, onClose }: { route: Route; profile: Profile;
   return <ModalFrame label="WHAT WE USED" title="Why this path starts here" onClose={onClose} className="why-modal"><div className="reason-row"><span><small>YOUR GOAL</small><b>{profile.goal}</b></span><i>+</i><span><small>WHAT YOU NEED</small><b>{profile.gap}</b></span><i>+</i><span><small>WHAT YOU DO WELL</small><b>{profile.strengths[0]}</b></span><i>→</i><span className="result"><small>START HERE</small><b>{routeNames[route.id].label}</b></span></div><div className="why-grid"><div><small>WHY IT FITS</small><p>{route.summary}. It also works with {profile.constraints.join(", ").toLowerCase()}.</p></div><div><small>WHAT THIS DOES NOT SAY</small><p>It does not predict acceptance, hiring, or success.</p></div></div><footer><span>This is a plan you can inspect, not a prediction.</span><button onClick={onClose}>DONE</button></footer></ModalFrame>;
 }
 
+const judgeDemoPrompts = [
+  {
+    label: "1 · CHECK + STAGE ANOTHER WAY",
+    text: "Read the current Future Doors path. Explain why Outreachy is not actionable for Maya using the official rule on the page. Then stage—not approve—a different path to public collaboration using GitHub's official open-source contribution guide as Source B. Keep Outreachy closed.",
+  },
+  {
+    label: "2 · STAGE A REAL WORK LINK",
+    text: "After I approve the different path, stage—not save—this public code change for the planned public_collaboration slot: https://github.com/aprilhan723/future-doors-webmcp/commit/86eb2b5. Describe only what the link directly shows. Leave final approval to me.",
+  },
+];
+
 function ToolsModal({ status, onClose }: { status: string; onClose: () => void }) {
+  const [copied, setCopied] = useState<number | null>(null);
   const abilities = [
     ["Read the path", "See the same steps you see"],
     ["Check a saved post", "Find the official page and deadline"],
     ["Ask for one missing fact", "Never guess eligibility"],
-    ["Attach real work", "Stage a PR, review, or demo as proof"],
+    ["Save real work", "Prepare a PR, review, or demo link"],
     ["Plan another way", "Work around a closed or missed door"],
     ["Compare routes", "Keep your limits in view"],
   ];
-  return <ModalFrame label="PEOPLE + AGENTS, ON THE SAME PAGE" title="What WebMCP changes" onClose={onClose} className="tools-modal"><p className="modal-note">The agent can work with this path directly instead of clicking around and guessing. It can suggest changes; only you can approve them.</p><div className="tool-grid ability-grid">{abilities.map(([title, detail]) => <span key={title}><b>✓ {title}</b><small>{detail}</small></span>)}</div><footer><span><i className={`capability-dot ${status}`} /> {siteToolNames.length} structured tools · {status === "ready" ? "connected here" : "ready in a WebMCP browser"}</span><button onClick={onClose}>DONE</button></footer></ModalFrame>;
+  const copyPrompt = async (index: number) => {
+    const text = judgeDemoPrompts[index].text;
+    let didCopy = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      didCopy = true;
+    } catch {
+      const field = document.createElement("textarea");
+      field.value = text;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      didCopy = document.execCommand("copy");
+      field.remove();
+    }
+    setCopied(didCopy ? index : null);
+  };
+  return <ModalFrame label="PEOPLE + AGENTS, ON THE SAME PAGE" title="What WebMCP changes" onClose={onClose} className="tools-modal"><p className="modal-note">The agent can work with this path directly instead of clicking around and guessing. It can suggest changes; only you can approve them.</p><div className="tool-grid ability-grid">{abilities.map(([title, detail]) => <span key={title}><b>✓ {title}</b><small>{detail}</small></span>)}</div><section className="judge-demo"><header><span><small>90-SECOND JUDGE DEMO</small><strong>Run these in ChatGPT</strong></span><b>Approve on the page between steps.</b></header>{judgeDemoPrompts.map((prompt, index) => <div key={prompt.label}><span><small>{prompt.label}</small><p>{prompt.text}</p></span><button onClick={() => copyPrompt(index)}>{copied === index ? "COPIED ✓" : "COPY"}</button></div>)}</section><footer><span><i className={`capability-dot ${status}`} /> {siteToolNames.length} structured tools · {status === "ready" ? "connected here" : "ready in a WebMCP browser"}</span><button onClick={onClose}>DONE</button></footer></ModalFrame>;
 }
 
 export default function FutureDoors() {
@@ -628,7 +679,7 @@ export default function FutureDoors() {
   const selectNode = useCallback((nodeId: string, actor: "you" | "agent" = "you") => { const node = requireVisibleStep(stateRef.current, nodeId); const change = (current: FutureDoorsState) => ({ ...current, selectedRouteId: node.routeId, selectedNodeId: node.id }); return actor === "agent" ? commit(actor, "Step focused", node.title, change) : setView(change); }, [commit, setView]);
   const simulateTake = useCallback((actor: "you" | "agent" = "you") => {
     requireActionableDoor(stateRef.current, "ship-challenge");
-    return commit(actor, "Try-out completed", "Simulated results only — no work link was attached", (current) => ({ ...current, selectedMonth: "2026-08", selectedRouteId: "ship", selectedNodeId: "ship-proof", scenario: "take", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 }));
+    return commit(actor, "Try-out completed", "Simulated results only — no work link was saved", (current) => ({ ...current, selectedMonth: "2026-08", selectedRouteId: "ship", selectedNodeId: "ship-proof", scenario: "take", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 }));
   }, [commit]);
   const simulateMiss = useCallback((actor: "you" | "agent" = "you") => commit(actor, "Opportunity missed in try-out", "The next step is now missing the work it needs", (current) => ({ ...current, selectedMonth: "2026-09", selectedRouteId: "ship", selectedNodeId: "ship-proof", scenario: "miss", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 })), [commit]);
   const stageDefaultBridge = useCallback(() => { commit("system", "Sample proof path staged", "The same proposal can be staged through WebMCP", (current) => ({ ...current, bridge: { ...current.bridge, state: "staged", stagedBy: "system" } }), { toolName: "sample_proposal", source: stateRef.current.bridge.sourceLabel, stateDiff: "bridge.none → staged" }); setModal("bridge"); }, [commit]);
@@ -651,17 +702,17 @@ export default function FutureDoors() {
     return { status: "ready_for_human_review", id, title: proposal.title, officialSource: proposal.sourceUrl, deadline: proposal.deadlineText, humanApprovalRequired: true };
   }, [commit]);
   const stagePriorityPlan = useCallback((proposal: Parameters<FutureDoorsActions["stagePriorityPlan"]>[0]) => {
-    if (proposal.routeIds.includes("ship") && buildRoutes(stateRef.current).find((item) => item.id === "ship")?.nodes[0].status === "ineligible") throw new Error("[INELIGIBLE_PRIORITY] Outreachy Dec 2026 cannot be proposed for this confirmed university location. Choose a route that remains available.");
-    commit("agent", "Priority plan staged", proposal.routeIds.map((id) => routeNames[id].label).join(" → "), (current) => ({ ...current, priorityProposal: { state: "staged", ...proposal } }), { toolName: "stage_priority_plan", stateDiff: "priority proposal none → staged" });
+    const routeIds = validatePriorityPlan(stateRef.current, proposal.routeIds);
+    commit("agent", "Priority plan staged", routeIds.map((id) => routeNames[id].label).join(" → "), (current) => ({ ...current, priorityProposal: { state: "staged", ...proposal, routeIds } }), { toolName: "stage_priority_plan", stateDiff: "priority proposal none → staged" });
     setModal("priority");
-    return { status: "staged", routeIds: proposal.routeIds, humanApprovalRequired: true };
+    return { status: "staged", routeIds, humanApprovalRequired: true };
   }, [commit]);
   const stageProofReceipt = useCallback((proposal: Parameters<FutureDoorsActions["stageProofReceipt"]>[0]) => {
-    const routeId = (Object.entries(scrapbookDetails) as [RouteId, (typeof scrapbookDetails)[RouteId]][]).find(([, detail]) => detail.proofId === proposal.proofId)?.[0];
+    const routeId = (Object.entries(ROUTE_PROOF) as [RouteId, ProofId][]).find(([, proofId]) => proofId === proposal.proofId)?.[0];
     if (!routeId || !stateRef.current.priorities.includes(routeId)) throw new Error("[PROOF_NOT_PLANNED] Pin the opportunity that creates this proof before attaching an artifact.");
     commit("agent", "Proof receipt staged", proposal.title, (current) => ({ ...current, proofProposal: { state: "staged", ...proposal } }), { toolName: "stage_proof_receipt", source: proposal.sourceLabel, stateDiff: `${proposal.proofId} PLANNED → waiting for approval` });
     setSelectedProofId(proposal.proofId); setModal("proof");
-    return { status: "staged", proofId: proposal.proofId, transition: "PLANNED → ATTACHED", humanApprovalRequired: true };
+    return { status: "staged", proofId: proposal.proofId, transition: "PLANNED → LINK SAVED", humanApprovalRequired: true };
   }, [commit]);
   const approveProofReceipt = useCallback((receipt: Parameters<FutureDoorsActions["stageProofReceipt"]>[0]) => {
     const previous = stateRef.current.proofReceipts.find((item) => item.proofId === receipt.proofId);
@@ -669,19 +720,22 @@ export default function FutureDoors() {
       ...current,
       proofReceipts: [...current.proofReceipts.filter((item) => item.proofId !== receipt.proofId), { proofId: receipt.proofId, title: receipt.title, artifactUrl: receipt.artifactUrl, sourceLabel: receipt.sourceLabel, verificationNote: receipt.verificationNote, attachedAt: new Date().toISOString() }],
       proofProposal: { state: "none", proofId: null, title: "", artifactUrl: "", sourceLabel: "", verificationNote: "" },
-    }), { toolName: "human_ui", source: receipt.sourceLabel, stateDiff: previous ? `${receipt.proofId} ATTACHED → ATTACHED · supersedes ${previous.title}` : `${receipt.proofId} PLANNED → ATTACHED` });
+    }), { toolName: "human_ui", source: receipt.sourceLabel, stateDiff: previous ? `${receipt.proofId} LINK SAVED → LINK SAVED · supersedes ${previous.title}` : `${receipt.proofId} PLANNED → LINK SAVED` });
     setModal(null);
   }, [commit]);
   const approvePriorities = useCallback(() => {
-    commit("you", "Priority plan approved", stateRef.current.priorityProposal.routeIds.map((id) => routeNames[id].label).join(" → "), (current) => ({ ...current, priorities: current.priorityProposal.routeIds, priorityProposal: { state: "none", routeIds: [], rationale: "" } }), { toolName: "human_ui", stateDiff: "priority proposal staged → approved" });
+    const routeIds = validatePriorityPlan(stateRef.current, stateRef.current.priorityProposal.routeIds);
+    commit("you", "Priority plan approved", routeIds.map((id) => routeNames[id].label).join(" → "), (current) => ({ ...current, priorities: routeIds, priorityProposal: { state: "none", routeIds: [], rationale: "" } }), { toolName: "human_ui", stateDiff: "priority proposal staged → approved" });
     setModal(null);
   }, [commit]);
   const togglePriority = useCallback((id: RouteId) => {
     const firstDoor = buildRoutes(stateRef.current).find((item) => item.id === id)?.nodes[0];
     if (firstDoor?.status === "ineligible" || firstDoor?.status === "expired" || firstDoor?.status === "blocked") return;
     commit("you", "Priority changed", routeNames[id].label, (current) => {
-      const next = current.priorities.includes(id) ? current.priorities.filter((item) => item !== id) : current.priorities.length < 2 ? [...current.priorities, id] : current.priorities;
-      return { ...current, priorities: next, priorityProposal: { state: "none", routeIds: [], rationale: "" } };
+      const removing = current.priorities.includes(id);
+      const next = removing ? current.priorities.filter((item) => item !== id) : current.priorities.length < maxPriorities ? [...current.priorities, id] : current.priorities;
+      const focusedNode = buildRoutes(current).find((item) => item.id === id)?.nodes[0];
+      return { ...current, priorities: next, selectedRouteId: removing || !focusedNode ? current.selectedRouteId : id, selectedNodeId: removing || !focusedNode ? current.selectedNodeId : focusedNode.id, priorityProposal: { state: "none", routeIds: [], rationale: "" } };
     });
   }, [commit]);
 
