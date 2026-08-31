@@ -33,6 +33,7 @@ When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) 
 ## Future Doors proof to show
 
 - One human and one agent act on the same visible opportunity path.
+- A person can keep up to four career directions open; every direction has a target year and the proof it still needs. A move can visibly support more than one direction without pretending to be a hiring prediction.
 - The agent can turn a screenshot clue into a saved opportunity with an exact deadline, relevant requirements, one missing fact, and concrete outputs; it can also stage CV facts, inspect, focus, compare, simulate, explain, and suggest another route.
 - Agent actions visibly update the page instead of returning invisible chat-only output.
 - Simulations never become confirmed profile facts.
@@ -46,7 +47,7 @@ When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) 
 - Source facts, agent inference, planned work, simulated results, saved work links, and independently verified proof are never presented as the same state.
 - A separate proof path cannot claim to restore eligibility for a closed program.
 - A proof slot is shown as `LINK SAVED · NOT VERIFIED` only after a direct HTTPS work link is staged and the person approves it; saving does not verify ownership or quality, and the shared change keeps actor, tool, source, state change, and time visible.
-- The demo shows the complete chain: saved post → official rule mismatch → blocked action → agent-staged alternative → human approval → planned proof toward the goal.
+- The demo shows the complete chain: saved post → official rule mismatch → blocked action → agent-staged alternative → human approval → planned proof toward one or more career directions.
 
 ## WebMCP implementation audit
 
@@ -89,11 +90,11 @@ Automated coverage lives in `src/lib/webmcp.test.ts`, `src/lib/future-map.test.t
 
 ## Demo sequence (target: 120–150 seconds)
 
-1. **0–12s:** Show the saved Outreachy post. “A screenshot is a clue. Future Doors finds the official rule before it lets the opportunity into the plan.”
+1. **0–12s:** Show three career-direction tabs and the saved Outreachy post. “A screenshot is a clue. Future Doors finds the official rule before it lets the opportunity into the plan.”
 2. **12–34s:** The agent reads the shared profile and official Outreachy rule; the page changes to `NOT THIS COHORT` and the take/pin actions are blocked.
 3. **34–55s:** Ask the agent to take it anyway; show the structured `DOOR_NOT_ACTIONABLE` refusal.
 4. **55–80s:** Ask for the best available route; the agent stages `Build in public` as P1 through `stage_priority_plan`.
-5. **80–98s:** Approve P1 in the human interface; show the proof gap update on the same screen.
+5. **80–98s:** Approve the first move in the human interface; show the proof gap update and that the same move helps another career direction.
 6. **98–118s:** Agent stages a separate source-backed contribution plan. Show Source B fact and the agent inference as different labels.
 7. **118–130s:** Approve it in the UI; Outreachy remains closed and the new output remains `PLANNED`.
 8. **130–145s:** Stage one direct PR URL with `stage_proof_receipt`, approve it in the UI, and show `Public collaboration · LINK SAVED · NOT VERIFIED` plus the shared changes.

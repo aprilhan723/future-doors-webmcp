@@ -1,12 +1,14 @@
 # Future Doors
 
-Future Doors turns a saved opportunity screenshot into a source-backed decision and a proof path toward a person’s goal.
+Future Doors turns a saved opportunity screenshot into a source-backed decision and a proof plan across the career directions a person wants to keep open.
 
-> Set a goal and year, confirm your profile facts, and see the best next move, what it creates, and what you can try next.
+> Save a post, confirm the official facts, choose up to two moves, and see what each move can build for up to four possible futures.
 
 Job sites recommend openings. Career explorers compare roles and skills. Credential products show predefined learning ladders. Future Doors focuses on a different link:
 
-**take one opportunity → create work you can show → become ready for the next move**
+**save an opportunity → check its official source → choose a move → create work that can help one or more futures**
+
+This is especially for people whose CV does not fit a single label: a builder may also be a technical storyteller, researcher, or education founder. They can keep up to four directions open, give each one its own target year and missing proof, and spot a move that is useful across more than one direction. Future Doors does not calculate a hiring or acceptance probability.
 
 The person can share an Instagram post, LinkedIn post, or poster screenshot in ChatGPT. The agent finds the original official page, exact deadline, relevant rules, and concrete outputs, then adds it to a seven-item review list. A screenshot is never treated as a source.
 
@@ -19,12 +21,13 @@ If the official rule does not match, the door is actually blocked: it cannot be 
 1. A screenshot becomes a saved opportunity only after the agent finds its official source.
 2. The page shows the exact deadline, the rules that matter, one missing fact, and whether the result helps the next step.
 3. Up to seven opportunities stay saved without overwriting one another.
-4. The goal map puts each opportunity beside its application window, activity length, weekly load, and the work it could add.
-5. The person can select at most two opportunities; selected paths are solid and missing work stays dotted and labeled.
-6. A rule mismatch visibly closes the row and prevents a false success simulation.
-7. The agent proposes a different proof path; only the person can approve it.
-8. A direct PR, review, demo, or portfolio URL can move one work type from `PLANNED` to `LINK SAVED · NOT VERIFIED`; the change remains human-approved and visible in the shared changes.
-9. Planned, simulated, saved, and independently verified work are never treated as the same state.
+4. The person can keep up to four career directions, each with its own target year and the work it still needs.
+5. The goal map puts each opportunity beside its timing, practical settings match, the work it could add, and any other direction it supports.
+6. The person can select at most two opportunities; selected work is labeled `PLANNED` and missing work stays visibly `NEEDED`.
+7. A rule mismatch visibly closes the row and prevents a false success simulation.
+8. The agent proposes a different proof path; only the person can approve it.
+9. A direct PR, review, demo, or portfolio URL can move one work type from `PLANNED` to `LINK SAVED · NOT VERIFIED`; the change remains human-approved and visible in the shared changes.
+10. Planned, simulated, saved, and independently verified work are never treated as the same state.
 
 Simulations never become profile facts. Paths never claim to predict acceptance or hiring.
 
