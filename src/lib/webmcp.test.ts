@@ -59,6 +59,10 @@ function makeActions(calls: ExpectedCall[]): FutureDoorsActions {
       outputs: proposal.outputs,
       eta: proposal.eta,
     }),
+    stagePriorityPlan: (proposal) => record("stage_priority_plan", {
+      route_ids: proposal.routeIds,
+      rationale: proposal.rationale,
+    }),
     pinConstraint: (constraint) => record("pin_constraint", { constraint }),
     compareRoutes: () => record("compare_routes"),
     explainDownstreamEffect: (stepId) => record("explain_downstream_effect", { step_id: stepId }),
@@ -99,6 +103,7 @@ describe("WebMCP contract", () => {
     expect(byName(tools, "stage_profile_facts").annotations?.untrustedContentHint).toBe(true);
     expect(byName(tools, "stage_opportunity_from_source").annotations?.untrustedContentHint).toBe(true);
     expect(byName(tools, "stage_bridge_from_source").annotations?.untrustedContentHint).toBe(true);
+    expect(byName(tools, "stage_priority_plan").annotations?.untrustedContentHint).toBe(true);
   });
 
   it("rejects bad route, date, door, and source inputs with actionable codes", () => {
@@ -129,6 +134,10 @@ describe("WebMCP contract", () => {
       rationale: "This creates a public artifact relevant to the goal.",
       outputs: ["Public demo"],
     })).toThrow("[INVALID_MONTH_FORMAT]");
+    expect(() => byName(tools, "stage_priority_plan").execute({
+      route_ids: ["ship", "ship"],
+      rationale: "These duplicate routes should not be accepted.",
+    })).toThrow("[INVALID_ARGUMENT]");
     expect(calls).toEqual([]);
   });
 });
@@ -158,5 +167,22 @@ describe("WebMCP journey evals", () => {
   it("keeps profile confirmation outside the agent tool surface", () => {
     expect(siteToolNames).not.toContain("approve_profile");
     expect(siteToolNames).not.toContain("confirm_profile");
+  });
+
+  it("stages priorities while keeping final approval human-only", async () => {
+    const calls: ExpectedCall[] = [];
+    const tools = createFutureDoorsTools(makeActions(calls));
+    await byName(tools, "stage_priority_plan").execute({
+      route_ids: ["ship", "community"],
+      rationale: "These routes fill public work and collaboration gaps within the current limits.",
+    });
+    expect(calls).toEqual([{
+      functionName: "stage_priority_plan",
+      arguments: {
+        route_ids: ["ship", "community"],
+        rationale: "These routes fill public work and collaboration gaps within the current limits.",
+      },
+    }]);
+    expect(siteToolNames).not.toContain("approve_priority_plan");
   });
 });

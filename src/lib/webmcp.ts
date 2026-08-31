@@ -64,6 +64,7 @@ export type FutureDoorsActions = {
     outputs: string[];
     eta: string;
   }) => unknown;
+  stagePriorityPlan: (proposal: { routeIds: RouteId[]; rationale: string }) => unknown;
   pinConstraint: (constraint: string, actor?: "you" | "agent") => unknown;
   compareRoutes: () => unknown;
   explainDownstreamEffect: (stepId: string, actor?: "you" | "agent") => unknown;
@@ -159,6 +160,18 @@ function optionalAge(input: Record<string, unknown>) {
   return Number(input.age);
 }
 
+function requireRouteArray(input: Record<string, unknown>, key: string) {
+  const raw = input[key];
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 2) {
+    throw new WebMcpToolError("INVALID_ARGUMENT", `"${key}" must contain one or two route ids.`);
+  }
+  const routeIds = raw.map(requireRouteId);
+  if (new Set(routeIds).size !== routeIds.length) {
+    throw new WebMcpToolError("INVALID_ARGUMENT", `"${key}" cannot contain duplicates.`);
+  }
+  return routeIds;
+}
+
 export function serializeToolOutput(value: unknown) {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   if (typeof text !== "string") {
@@ -189,6 +202,7 @@ export const siteToolNames = [
   "simulate_take_door",
   "simulate_missed_door",
   "stage_bridge_from_source",
+  "stage_priority_plan",
   "pin_constraint",
   "compare_routes",
   "explain_downstream_effect",
@@ -338,6 +352,20 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
         rationale: requireString(input, "rationale", 12, 300),
         outputs: requireStringArray(input, "outputs", 1, 5),
         eta: requireString(input, "eta", 2, 30),
+      })),
+    },
+    {
+      name: "stage_priority_plan",
+      title: "Stage priority opportunities",
+      description: "Propose one or two routes that best fill the person's current proof gaps. Show the proposal in the shared page, but never pin or reorder a route until the person approves it.",
+      inputSchema: objectSchema({
+        route_ids: { type: "array", minItems: 1, maxItems: 2, items: routeSchema, description: "One or two exact route ids from get_path_snapshot, in priority order." },
+        rationale: { type: "string", minLength: 12, maxLength: 240, description: "Why these routes fill distinct proof gaps within the person's constraints." },
+      }, ["route_ids", "rationale"]),
+      annotations: { untrustedContentHint: true },
+      execute: (input) => asToolResult(actions.stagePriorityPlan({
+        routeIds: requireRouteArray(input, "route_ids"),
+        rationale: requireString(input, "rationale", 12, 240),
       })),
     },
     {

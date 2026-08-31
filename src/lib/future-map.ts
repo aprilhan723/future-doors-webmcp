@@ -111,6 +111,12 @@ export type FutureDoorsState = {
   scenario: Scenario;
   bridge: BridgeProposal;
   opportunities: OpportunityCandidate[];
+  priorities: RouteId[];
+  priorityProposal: {
+    state: "none" | "staged";
+    routeIds: RouteId[];
+    rationale: string;
+  };
   pinnedConstraints: string[];
   activity: Activity[];
   replayToken: number;
@@ -186,7 +192,7 @@ export const initialState: FutureDoorsState = {
     workAuthorization: "Needs confirmation by country",
     strengths: ["Fast prototyping", "Product storytelling"],
     credentials: [],
-    gap: "A public product people can review",
+    gap: "Public work and mentor feedback",
     constraints: ["≤ 10 hrs / week", "Low or no cost", "Remote-friendly"],
   },
   selectedMonth: "2026-08",
@@ -195,22 +201,24 @@ export const initialState: FutureDoorsState = {
   scenario: "baseline",
   bridge: {
     state: "none",
-    title: "Independent Public Demo Sprint",
-    rationale: "Create the same useful work without claiming the missed award.",
-    sourceLabel: "WebMCP Challenge submission requirements",
-    sourceUrl: "https://webmcp.devpost.com/",
-    sourceClause: "A working URL, public code repository, and public demo video are required.",
-    outputs: ["Live app", "Public repository", "Demo video"],
-    eta: "+6 weeks",
+    title: "Open-source contribution sprint",
+    rationale: "Make one bounded public contribution now, so the next application has real work and review history to use.",
+    sourceLabel: "GitHub Docs · Contributing to open source",
+    sourceUrl: "https://docs.github.com/en/get-started/exploring-projects-on-github/finding-ways-to-contribute-to-open-source-on-github",
+    sourceClause: "GitHub documents issue labels, contribution guidelines, and bounded ways to begin contributing to an open-source repository.",
+    outputs: ["Public contribution", "Review trail", "Maintainer feedback"],
+    eta: "4–8 weeks",
   },
   opportunities: [],
+  priorities: ["ship"],
+  priorityProposal: { state: "none", routeIds: [], rationale: "" },
   pinnedConstraints: ["≤ 10 hrs / week", "Low or no cost", "Remote-friendly"],
   activity: [
     {
       id: "seed-route",
       actor: "system",
       label: "Three routes compiled",
-      detail: "Each step creates what the next step needs.",
+      detail: "One source-backed opportunity is ready to compare.",
     },
   ],
   replayToken: 0,
@@ -292,8 +300,8 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
   const connected = getConnectedOpportunity(state);
   const imported = Boolean(connected);
   const deadlineMonth = connected?.deadlineMonth ?? "2026-08";
-  const opportunityTitle = connected?.title ?? "WebMCP Challenge";
-  const opportunityOutputs = connected?.outputs ?? ["Live product", "Public code", "Demo narrative"];
+  const opportunityTitle = connected?.title ?? "Outreachy · Dec 2026";
+  const opportunityOutputs = connected?.outputs ?? ["Public contribution", "Mentor feedback", "Project plan"];
   const challengeExpired = monthNumber(state.selectedMonth) > monthNumber(deadlineMonth) && !taken;
   const hasProof = taken || rerouted;
 
@@ -305,18 +313,18 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       kind: "opportunity",
       eyebrow: "DOOR 01 · COMPETE",
       title: opportunityTitle,
-      date: imported ? `Closes · ${formatMonth(deadlineMonth)}` : "Sep 4 · 5 AM KST",
-      status: taken ? "simulated" : challengeMissed || challengeExpired ? "expired" : "available",
+      date: imported ? `Closes · ${formatMonth(deadlineMonth)}` : "Sep 1 · 1 AM KST",
+      status: taken ? "simulated" : challengeMissed || challengeExpired ? "expired" : imported ? "available" : "checking",
       description: taken
         ? "Simulated completion only. No real application fact was added to your profile."
         : challengeMissed || challengeExpired
           ? "The deadline passed, so this route no longer creates the work needed for the next step."
           : imported
             ? connected?.rationale ?? ""
-            : "A live chance to turn product work into public work you can show.",
-      sourceLabel: imported ? connected?.sourceLabel : "Official WebMCP Challenge",
-      sourceUrl: imported ? connected?.sourceUrl : "https://webmcp.devpost.com/",
-      sourceClause: imported ? connected?.sourceClause : "Submissions require a working URL, public repository, and public demo video.",
+            : "A paid remote open-source internship. Student calendar and 30-hour availability rules must be checked before it joins the path.",
+      sourceLabel: imported ? connected?.sourceLabel : "Official Outreachy Applicant Guide",
+      sourceUrl: imported ? connected?.sourceUrl : "https://www.outreachy.org/docs/applicant/",
+      sourceClause: imported ? connected?.sourceClause : "Northern Hemisphere university students may only apply to the May–August cohort; the December 2026 initial application closes Aug 31 at 16:00 UTC.",
       evidence: opportunityOutputs,
       edgeToNext: {
         type: challengeMissed && !rerouted ? "blocked" : "creates",
@@ -357,7 +365,7 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
             ? "Without a live app, public code, and demo story, the next step has nothing concrete to review."
             : hasProof
               ? "These are try-out results, not confirmed achievements."
-              : "Complete the first opportunity to create real work people can review.",
+          : "If the initial application is approved, the contribution period can create public work and mentor feedback.",
           evidence: missed ? opportunityOutputs.map((item) => `${item} missing`) : opportunityOutputs,
           edgeToNext: {
             type: missed ? "blocked" : "official",
@@ -370,16 +378,16 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       stage: 3,
       kind: "opportunity",
       eyebrow: "DOOR 02 · SHARE",
-      title: "Submit to OpenAI Showcase",
-      date: rerouted ? "Ready after another route" : "After your project is public",
+      title: "Outreachy final application",
+      date: rerouted ? "Ready after another route" : "After a recorded contribution",
       status: missed ? "blocked" : hasProof ? "ready" : "locked",
       description: missed
-        ? "This path is blocked because there is no public product to present."
-        : "Submit a finished project, demo, or workflow. Being featured is never predicted or guaranteed.",
-      sourceLabel: "OpenAI Developer Community",
-      sourceUrl: "https://developers.openai.com/community",
-      sourceClause: "The official community page invites developers to submit a project, demo, or workflow to the showcase.",
-      evidence: ["Project submission", "Product explanation", "Community-ready story"],
+        ? "This path is blocked because there is no recorded contribution for the final application."
+        : "Only applicants who record a contribution can create a final application. Selection is never predicted or guaranteed.",
+      sourceLabel: "Official Outreachy Applicant Guide",
+      sourceUrl: "https://www.outreachy.org/docs/applicant/",
+      sourceClause: "Applicants must record at least one project contribution before they can create a final application.",
+      evidence: ["Recorded contribution", "Project timeline", "Final application"],
       edgeToNext: { type: "signal", label: "STRENGTHENS — NEVER GUARANTEES" },
     },
     {
@@ -389,12 +397,12 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       kind: "destination",
       eyebrow: `TARGET · ${state.profile.targetYear}`,
       title: state.profile.goal,
-      date: rerouted ? `Target ${state.profile.targetYear} · +6 weeks` : `Target · ${state.profile.targetYear}`,
+      date: rerouted ? `Target ${state.profile.targetYear} · ${state.bridge.eta}` : `Target · ${state.profile.targetYear}`,
       status: missed ? "blocked" : hasProof ? "strengthened" : "destination",
       description: missed
         ? "The destination remains possible, but one step in this route is missing."
         : "A direction, not a hiring prediction. The route shows which work can help the next move.",
-      evidence: ["Shipped product", "Work people can review", "Clear product judgment"],
+      evidence: ["Public work", "Mentor feedback", "Open-source collaboration"],
     },
   ];
 }
@@ -539,7 +547,7 @@ export function buildRoutes(state: FutureDoorsState): Route[] {
       number: "01",
       label: "SHIP",
       fit: fits.ship,
-      eta: state.scenario === "rerouted" ? `${state.profile.targetYear} + 6 weeks` : String(state.profile.targetYear),
+      eta: state.scenario === "rerouted" ? `${state.profile.targetYear} · ${state.bridge.eta}` : String(state.profile.targetYear),
       summary: "Fastest way to build a public product",
       accent: "coral",
       nodes: shipNodes(state),
@@ -633,6 +641,8 @@ export function summarizeState(state: FutureDoorsState) {
         .slice(0, 3)
         .map((candidate) => ({ id: candidate.id, title: compactText(candidate.title), status: reviewOpportunity(candidate).status })),
     },
+    priorities: state.priorities,
+    ...(state.priorityProposal.state === "staged" ? { priorityProposal: "staged" } : {}),
     route: {
       id: selectedRoute.id,
       why: selectedRoute.summary,
@@ -650,7 +660,7 @@ export function summarizeState(state: FutureDoorsState) {
       firstDoor: route.nodes[0].title,
     })),
     guardrails: [
-      "Simulations never update confirmed facts.",
+      "Simulations never confirm facts.",
       "saved_items_need_human_approval",
       "missing_or_unrelated_items_stay_saved",
       "try_outs_never_confirm_facts",
@@ -662,6 +672,7 @@ export function summarizeRouteComparison(state: FutureDoorsState) {
   return {
     goal: { role: state.profile.goal, by: state.profile.targetYear },
     constraints: state.pinnedConstraints,
+    priorities: state.priorities,
     routes: buildRoutes(state).map((route) => ({
       id: route.id,
       why: route.summary,
