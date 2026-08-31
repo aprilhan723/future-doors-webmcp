@@ -357,11 +357,7 @@ function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof
   const covered = new Set([...planned, ...attached]);
   const proposal = new Set(state.priorityProposal.state === "staged" ? state.priorityProposal.routeIds : []);
   const displayRoutes = routeDisplayOrder.map((id) => routes.find((item) => item.id === id)).filter((item): item is Route => Boolean(item));
-  const selectedReason = selectedNode.status === "ineligible"
-    ? "This opportunity is not available for your confirmed profile."
-    : selectedNode.kind === "bridge"
-      ? "This is an agent connection. You decide whether to add it."
-      : "Use the official page before you make it part of your plan.";
+  const selectedReason = "Choose a card to check its official rule. Add only what fits your plan.";
 
   return <section className={`simple-plan scenario-${state.scenario}`} aria-label="Choose opportunities that build the work your goal needs">
     <header className="simple-plan-header">
