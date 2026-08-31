@@ -307,8 +307,8 @@ function OpeningSequence({ onDone }: { onDone: () => void }) {
       <PremiumPortal hero />
     </div>
     <motion.div className="opening-copy" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28, duration: 0.6 }}>
-      <small>EVERY OPPORTUNITY HAS A WINDOW</small>
-      <h1>See what opens next.</h1>
+      <small>SAVE → CHECK RULES → CHOOSE</small>
+      <h1>Turn a saved post into a real next step.</h1>
     </motion.div>
     <button onClick={onDone}>SKIP ↗</button>
   </motion.section>;
@@ -317,11 +317,11 @@ function OpeningSequence({ onDone }: { onDone: () => void }) {
 function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: () => void; onTools: () => void }) {
   return <section className="launch-scene" aria-labelledby="launch-title">
     <motion.div className="launch-copy" initial={{ opacity: 0, x: -26 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .72, ease: [0.16, 1, 0.3, 1] }}>
-      <small>ONE SAVED POST → ONE SOURCE-BACKED PATH</small>
-      <h1 id="launch-title">Add a saved opportunity. <em>Choose your next step.</em></h1>
-      <p>Share a screenshot or link. The agent checks the official rules. <b>You choose what joins your plan.</b></p>
+      <small>SAVED POST → OFFICIAL SOURCE → YOUR PLAN</small>
+      <h1 id="launch-title">Save it. <em>See what it can build.</em></h1>
+      <p>Add a screenshot or link. The agent checks the official source. <b>You choose up to two moves for each future you want to keep open.</b></p>
       <div className="launch-actions">
-        <button className="launch-primary" onClick={onAdd}>ADD A SCREENSHOT <span>＋</span></button>
+        <button className="launch-primary" onClick={onAdd}>ADD A POST OR LINK <span>＋</span></button>
         <button onClick={onDemo}>VIEW EXAMPLE <span>→</span></button>
       </div>
       <button className="launch-explain" onClick={onTools}>WHY THIS NEEDS WEBMCP ↗</button>
@@ -336,9 +336,9 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
     </motion.div>
 
     <ol className="launch-method" aria-label="How Future Doors works">
-      <li><i>01</i><span><b>YOU SHARE</b><small>A screenshot or link</small></span></li>
-      <li><i>02</i><span><b>AGENT CHECKS</b><small>Source, rules, deadline</small></span></li>
-      <li><i>03</i><span><b>YOU CHOOSE</b><small>Take it, skip it, or reroute</small></span></li>
+      <li><i>01</i><span><b>ADD A POST</b><small>Screenshot or link</small></span></li>
+      <li><i>02</i><span><b>CHECK THE SOURCE</b><small>Rules and deadline</small></span></li>
+      <li><i>03</i><span><b>CHOOSE YOUR MOVE</b><small>Add it or skip it</small></span></li>
     </ol>
   </section>;
 }
@@ -365,8 +365,8 @@ function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof
 
   return <section className={`simple-plan scenario-${state.scenario}`} aria-label="Choose opportunities that build the work your goal needs">
     <header className="simple-plan-header">
-      <span><small>NEXT 90 DAYS</small><strong>Pin up to two moves.</strong></span>
-      <b>{priorities.length} / {maxPriorities} PINNED</b>
+      <span><small>NEXT 90 DAYS</small><strong>Choose up to two moves.</strong></span>
+      <b>{priorities.length} / {maxPriorities} IN YOUR PLAN</b>
     </header>
     <section className="simple-goal-strip" aria-label={`Goal: ${state.profile.goal}`}>
       <div className="simple-goal-heading"><span><small>YOUR GOAL</small><strong>{state.profile.goal}</strong><em>by {state.profile.targetYear}</em></span><nav className="simple-goal-tabs" aria-label="Career goals">{state.goals.map((goal) => <button key={goal.id} className={goal.id === state.selectedGoalId ? "active" : ""} onClick={() => onGoal(goal.id)}>{goal.shortLabel}</button>)}{state.goals.length < 4 ? <button className="add-goal" onClick={onAddGoal} aria-label="Add another career direction">＋</button> : null}</nav></div>
@@ -405,7 +405,7 @@ function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof
             <button className="simple-route-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
               <i>{detail.shortTrack}</i><span><small>{label}</small><strong>{displayNodeTitle(node)}</strong><em>{detail.timing}</em><span className="simple-route-tags">{fit.reasons.map((reason) => <b key={reason}>{reason}</b>)}{sharedWith.length ? <b className="cross-goal">+ {sharedWith.join(" · ")}</b> : null}</span></span>
             </button>
-            <div className={`simple-route-outcome ${proofState}`}><small>{proofState === "linked" ? "WORK LINK SAVED" : proofState === "planned" ? "YOUR PLAN ADDS" : "THIS COULD ADD"}</small><strong>{detail.signal}</strong></div>
+            <div className={`simple-route-outcome ${proofState}`}><small>{proofState === "linked" ? "WORK LINK SAVED · NOT VERIFIED" : proofState === "planned" ? "YOUR PLAN ADDS" : "THIS COULD ADD"}</small><strong>{detail.signal}</strong></div>
             <div className="simple-route-action">
               {pinned ? <button className="simple-proof-button" onClick={() => onProof(proofId)}>{proofState === "linked" ? "VIEW LINK" : "ADD WORK LINK"}</button>
                 : unavailable ? (node.sourceUrl ? <a href={node.sourceUrl} target="_blank" rel="noreferrer">VIEW RULE ↗</a> : <span>NOT AVAILABLE</span>)
@@ -415,8 +415,8 @@ function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof
           </motion.article>;
       })}
       </div>
-      {priorities.length ? <div className="simple-pinned-plan" aria-label="Pinned plan">
-        <small>YOUR PINNED PLAN</small>
+      {priorities.length ? <div className="simple-pinned-plan" aria-label="Your selected plan">
+        <small>YOUR PLAN</small>
         <div>{priorities.map((id, index) => <button key={id} onClick={() => onRoute(id)}><i>{index + 1}</i><span><b>{routeNames[id].label}</b><em>{simpleRouteDetails[id].timing}</em></span></button>)}</div>
       </div> : null}
     </div>
