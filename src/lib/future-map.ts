@@ -17,6 +17,20 @@ export type NodeStatus =
   | "destination";
 export type EdgeType = "official" | "creates" | "signal" | "blocked";
 
+export type WorkModePreference = "Remote first" | "Hybrid okay" | "On-site okay";
+export type CompensationPreference = "Paid preferred" | "Paid only" | "Any compensation";
+export type TimePreference = "Up to 10 hrs / week" | "Up to 20 hrs / week" | "Flexible time";
+export type SchedulePreference = "During semester" | "Break only" | "Any schedule";
+export type ParticipationPreference = "Solo or small team" | "Team okay" | "Solo only";
+
+export type PathPreferences = {
+  workMode: WorkModePreference;
+  compensation: CompensationPreference;
+  timeCommitment: TimePreference;
+  schedule: SchedulePreference;
+  participation: ParticipationPreference;
+};
+
 export type Profile = {
   name: string;
   age: number;
@@ -33,6 +47,7 @@ export type Profile = {
   credentials: string[];
   gap: string;
   constraints: string[];
+  preferences: PathPreferences;
 };
 
 export type PathNode = {
@@ -61,6 +76,21 @@ export type Route = {
   summary: string;
   accent: string;
   nodes: PathNode[];
+};
+
+export type RouteFit = {
+  matches: number;
+  total: number;
+  reasons: string[];
+};
+
+export type CareerGoal = {
+  id: string;
+  title: string;
+  shortLabel: string;
+  targetYear: number;
+  gap: string;
+  supportedRoutes: RouteId[];
 };
 
 export type BridgeProposal = {
@@ -122,6 +152,8 @@ export type ProofReceipt = {
 
 export type FutureDoorsState = {
   profile: Profile;
+  goals: CareerGoal[];
+  selectedGoalId: string;
   selectedMonth: string;
   selectedRouteId: RouteId;
   selectedNodeId: string;
@@ -231,7 +263,20 @@ export const initialState: FutureDoorsState = {
     credentials: [],
     gap: "Public work and mentor feedback",
     constraints: ["≤ 10 hrs / week", "Low or no cost", "Remote-friendly"],
+    preferences: {
+      workMode: "Remote first",
+      compensation: "Paid preferred",
+      timeCommitment: "Up to 10 hrs / week",
+      schedule: "During semester",
+      participation: "Solo or small team",
+    },
   },
+  goals: [
+    { id: "ai-product", title: "AI Product Builder", shortLabel: "AI products", targetYear: 2030, gap: "Public work and mentor feedback", supportedRoutes: ["ship", "community", "research"] },
+    { id: "hardware-story", title: "Semiconductor Product Storyteller", shortLabel: "Hardware", targetYear: 2030, gap: "Technical proof people can understand", supportedRoutes: ["community", "research"] },
+    { id: "learning-founder", title: "Global Learning Product Founder", shortLabel: "Learning", targetYear: 2030, gap: "A product case study with learner feedback", supportedRoutes: ["ship", "community"] },
+  ],
+  selectedGoalId: "ai-product",
   selectedMonth: "2026-08",
   selectedRouteId: "ship",
   selectedNodeId: "ship-challenge",
@@ -581,6 +626,58 @@ function communityNodes(state: FutureDoorsState): PathNode[] {
   ];
 }
 
+const routePreferenceFacts: Record<RouteId, {
+  workMode: "remote" | "hybrid" | "onsite";
+  compensation: "paid" | "unpaid" | "mixed";
+  hours: 10 | 20 | 30;
+  schedule: "semester" | "break" | "flexible";
+  participation: "solo" | "team" | "either";
+}> = {
+  ship: { workMode: "remote", compensation: "paid", hours: 30, schedule: "break", participation: "either" },
+  community: { workMode: "remote", compensation: "unpaid", hours: 10, schedule: "flexible", participation: "either" },
+  research: { workMode: "remote", compensation: "mixed", hours: 10, schedule: "semester", participation: "either" },
+};
+
+/**
+ * This is a transparent preference match, not a likelihood or admissions score.
+ * It lets the interface explain why one practical route is ordered ahead of another.
+ */
+export function getRouteFit(state: FutureDoorsState, routeId: RouteId): RouteFit {
+  const preference = state.profile.preferences;
+  const facts = routePreferenceFacts[routeId];
+  const checks = [
+    {
+      matches: preference.workMode === "Remote first" ? facts.workMode === "remote" : preference.workMode === "Hybrid okay" ? facts.workMode !== "onsite" : true,
+      reason: facts.workMode === "remote" ? "Remote" : facts.workMode === "hybrid" ? "Hybrid" : "On-site",
+    },
+    {
+      matches: preference.compensation === "Paid only" ? facts.compensation === "paid" : preference.compensation === "Paid preferred" ? facts.compensation !== "unpaid" : true,
+      reason: facts.compensation === "paid" ? "Paid" : facts.compensation === "mixed" ? "Stipend varies" : "Volunteer work",
+    },
+    {
+      matches: preference.timeCommitment === "Up to 10 hrs / week" ? facts.hours <= 10 : preference.timeCommitment === "Up to 20 hrs / week" ? facts.hours <= 20 : true,
+      reason: `${facts.hours <= 10 ? "5–10" : facts.hours} hrs / week`,
+    },
+    {
+      matches: preference.schedule === "During semester" ? facts.schedule !== "break" : preference.schedule === "Break only" ? facts.schedule !== "semester" : true,
+      reason: facts.schedule === "semester" ? "Semester-friendly" : facts.schedule === "break" ? "Break-focused" : "Flexible timing",
+    },
+    {
+      matches: preference.participation === "Solo only" ? facts.participation === "solo" : preference.participation === "Solo or small team" ? facts.participation !== "team" : true,
+      reason: facts.participation === "solo" ? "Solo" : facts.participation === "team" ? "Team-based" : "Solo or team",
+    },
+  ];
+  return {
+    matches: checks.filter((check) => check.matches).length,
+    total: checks.length,
+    reasons: checks.filter((check) => check.matches).map((check) => check.reason).slice(0, 3),
+  };
+}
+
+export function getSelectedCareerGoal(state: FutureDoorsState) {
+  return state.goals.find((goal) => goal.id === state.selectedGoalId) ?? state.goals[0];
+}
+
 export function buildRoutes(state: FutureDoorsState): Route[] {
   const goalText = state.profile.goal.toLowerCase();
   const strengthText = state.profile.strengths.join(" ").toLowerCase();
@@ -681,30 +778,39 @@ export function summarizeState(state: FutureDoorsState) {
   return {
     product: "Future Doors",
     goal: { role: state.profile.goal, by: state.profile.targetYear },
+    goals: { selected: state.selectedGoalId, n: state.goals.length },
     profile: {
       age: state.profile.age,
       grad: state.profile.graduationMonth,
-      citizenship: state.profile.nationality,
+      citizen: state.profile.nationality,
       based: state.profile.residence,
-      university: state.profile.universityLocation,
+      uni: state.profile.universityLocation,
       status: state.profile.studyStatus,
       field: state.profile.fieldOfStudy,
-      workAuth: state.profile.workAuthorization,
+      auth: state.profile.workAuthorization,
       strengths: state.profile.strengths,
       ...(state.profile.credentials.length ? { credentials: state.profile.credentials } : {}),
       gap: state.profile.gap,
+      // [mode, compensation, weekly time, schedule, participation]
+      prefs: [
+        state.profile.preferences.workMode === "Remote first" ? "remote" : state.profile.preferences.workMode === "Hybrid okay" ? "hybrid" : "onsite",
+        state.profile.preferences.compensation === "Paid only" ? "paid" : state.profile.preferences.compensation === "Paid preferred" ? "prefer-paid" : "any",
+        state.profile.preferences.timeCommitment === "Up to 10 hrs / week" ? "10h" : state.profile.preferences.timeCommitment === "Up to 20 hrs / week" ? "20h" : "flex",
+        state.profile.preferences.schedule === "During semester" ? "semester" : state.profile.preferences.schedule === "Break only" ? "break" : "any",
+        state.profile.preferences.participation === "Solo only" ? "solo" : state.profile.preferences.participation === "Team okay" ? "team" : "solo-small-team",
+      ],
     },
     month: state.selectedMonth,
     scenario: state.scenario,
     selected: { route: state.selectedRouteId, step: selected.id },
     bridge: state.bridge.state,
-    savedOpportunities: {
-      count: state.opportunities.length,
-      connected: getConnectedOpportunity(state) ? compactText(getConnectedOpportunity(state)!.title) : null,
+    saved: {
+      n: state.opportunities.length,
+      on: getConnectedOpportunity(state) ? compactText(getConnectedOpportunity(state)!.title, 30) : null,
       waiting: state.opportunities
         .filter((candidate) => candidate.state === "review")
-        .slice(0, 3)
-        .map((candidate) => ({ id: candidate.id, title: compactText(candidate.title), status: reviewOpportunity(candidate).status })),
+        .slice(0, 2)
+        .map((candidate) => ({ id: candidate.id, title: compactText(candidate.title), state: reviewOpportunity(candidate).status })),
     },
     priorities: state.priorities,
     proof: Object.fromEntries(PROOF_IDS.map((proofId) => [proofId, attachedProof.has(proofId) ? "attached" : state.proofProposal.state === "staged" && state.proofProposal.proofId === proofId ? "review" : plannedProof.has(proofId) ? "planned" : "missing"])),
@@ -720,11 +826,11 @@ export function summarizeState(state: FutureDoorsState) {
         ...((node.kind === "evidence" || node.kind === "bridge") && node.evidence.length ? { evidence: node.evidence.slice(0, 3).map((item) => compactText(item, 36)) } : {}),
       })),
     },
-    alternatives: routes.filter((route) => route.id !== selectedRoute.id).map((route) => route.id),
+    other: routes.filter((route) => route.id !== selectedRoute.id).map((route) => route.id),
     guardrails: [
-      "human_approval_required_for_writes",
-      "unknown_or_ineligible_doors_are_not_actionable",
-      "planned_or_simulated_never_means_attached",
+      "human_approval_for_writes",
+      "unknown_or_ineligible_not_actionable",
+      "planned_never_means_attached",
     ],
   };
 }
@@ -737,6 +843,7 @@ export function summarizeRouteComparison(state: FutureDoorsState) {
     routes: buildRoutes(state).map((route) => ({
       id: route.id,
       why: route.summary,
+      preferenceMatch: getRouteFit(state, route.id),
       eta: route.eta,
       firstDoor: route.nodes[0].title,
       creates: route.nodes[1].evidence,
@@ -765,6 +872,42 @@ function safeTextList(value: unknown, fallback: string[], maxItems: number) {
   return clean.length ? clean : fallback;
 }
 
+function preferenceValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T) {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
+
+function sanitizePreferences(value: unknown, fallback: PathPreferences): PathPreferences {
+  const raw = isRecord(value) ? value : {};
+  return {
+    workMode: preferenceValue(raw.workMode, ["Remote first", "Hybrid okay", "On-site okay"] as const, fallback.workMode),
+    compensation: preferenceValue(raw.compensation, ["Paid preferred", "Paid only", "Any compensation"] as const, fallback.compensation),
+    timeCommitment: preferenceValue(raw.timeCommitment, ["Up to 10 hrs / week", "Up to 20 hrs / week", "Flexible time"] as const, fallback.timeCommitment),
+    schedule: preferenceValue(raw.schedule, ["During semester", "Break only", "Any schedule"] as const, fallback.schedule),
+    participation: preferenceValue(raw.participation, ["Solo or small team", "Team okay", "Solo only"] as const, fallback.participation),
+  };
+}
+
+function sanitizeCareerGoals(value: unknown, fallback: CareerGoal[]) {
+  if (!Array.isArray(value)) return fallback;
+  const goals = value.flatMap((raw): CareerGoal[] => {
+    if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.title !== "string") return [];
+    const id = raw.id.trim().toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 36);
+    if (!id) return [];
+    const supportedRoutes: RouteId[] = Array.isArray(raw.supportedRoutes)
+      ? raw.supportedRoutes.filter((route): route is RouteId => route === "ship" || route === "community" || route === "research").filter((route, index, all) => all.indexOf(route) === index)
+      : ["ship", "community", "research"];
+    return [{
+      id,
+      title: safeText(raw.title, "Career goal", 80),
+      shortLabel: safeText(raw.shortLabel, safeText(raw.title, "Goal", 22), 22),
+      targetYear: Number.isInteger(raw.targetYear) ? Math.min(2040, Math.max(2027, Number(raw.targetYear))) : 2030,
+      gap: safeText(raw.gap, "A visible proof of work", 100),
+      supportedRoutes: supportedRoutes.length ? supportedRoutes : ["ship", "community", "research"],
+    }];
+  }).filter((goal, index, all) => all.findIndex((candidate) => candidate.id === goal.id) === index).slice(0, 4);
+  return goals.length ? goals : fallback;
+}
+
 export function sanitizePersistedState(value: unknown): FutureDoorsState {
   const base = cloneInitialState();
   if (!isRecord(value)) return base;
@@ -772,7 +915,15 @@ export function sanitizePersistedState(value: unknown): FutureDoorsState {
   const bridgeRaw = isRecord(value.bridge) ? value.bridge : {};
   // Eligibility-driving profile facts are approvals, not browser preferences.
   // A local draft cannot become a confirmed fact after reload.
-  const profile: Profile = { ...base.profile };
+  const rawProfile = isRecord(value.profile) ? value.profile : {};
+  const profile: Profile = {
+    ...base.profile,
+    // Practical preferences are user choices, not asserted eligibility facts.
+    // They can safely restore as a local draft without changing an official rule result.
+    preferences: sanitizePreferences(rawProfile.preferences, base.profile.preferences),
+  };
+  const goals = sanitizeCareerGoals(value.goals, base.goals);
+  const selectedGoalId = typeof value.selectedGoalId === "string" && goals.some((goal) => goal.id === value.selectedGoalId) ? value.selectedGoalId : goals[0].id;
 
   let selectedMonth = base.selectedMonth;
   try { selectedMonth = requirePathMonth(value.selectedMonth); } catch { /* Keep the safe baseline month. */ }
@@ -812,6 +963,8 @@ export function sanitizePersistedState(value: unknown): FutureDoorsState {
 
   const next: FutureDoorsState = {
     profile,
+    goals,
+    selectedGoalId,
     selectedMonth,
     selectedRouteId,
     selectedNodeId: typeof value.selectedNodeId === "string" ? value.selectedNodeId.slice(0, 80) : base.selectedNodeId,
@@ -836,6 +989,9 @@ export function sanitizePersistedState(value: unknown): FutureDoorsState {
     activity,
     replayToken: Number.isInteger(value.replayToken) && Number(value.replayToken) >= 0 ? Number(value.replayToken) : 0,
   };
+
+  const selectedGoal = getSelectedCareerGoal(next);
+  next.profile = { ...next.profile, goal: selectedGoal.title, targetYear: selectedGoal.targetYear, gap: selectedGoal.gap };
 
   try { requireVisibleStep(next, next.selectedNodeId); } catch { next.selectedNodeId = getRoute(next, next.selectedRouteId).nodes[0].id; }
   if (isDefaultOutreachyCohortMismatch(next)) next.priorities = next.priorities.filter((id) => id !== "ship");

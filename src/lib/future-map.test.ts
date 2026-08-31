@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRoutes,
   cloneInitialState,
+  getRouteFit,
   reviewOpportunity,
   requireActionableDoor,
   requireDoorId,
@@ -16,6 +17,15 @@ import {
 import { WEBMCP_OUTPUT_CHARACTER_BUDGET, serializeToolOutput } from "./webmcp";
 
 describe("path input validation", () => {
+  it("explains a route's practical fit without claiming a chance of acceptance", () => {
+    const state = cloneInitialState();
+    const community = getRouteFit(state, "community");
+    const ship = getRouteFit(state, "ship");
+
+    expect(community).toMatchObject({ total: 5, reasons: expect.arrayContaining(["Remote", "5–10 hrs / week"]) });
+    expect(community.matches).toBeGreaterThan(ship.matches);
+  });
+
   it("accepts exact public ids and the full supported month boundary", () => {
     const state = cloneInitialState();
     expect(requireRouteId("community")).toBe("community");
@@ -91,6 +101,18 @@ describe("path input validation", () => {
     expect(restored.profile.studyStatus).toBe("Undergraduate");
     expect(buildRoutes(restored).find((route) => route.id === "ship")?.nodes[0].status).toBe("ineligible");
     expect(restored.priorities).toEqual([]);
+  });
+
+  it("can restore practical preferences without restoring eligibility facts", () => {
+    const restored = sanitizePersistedState({
+      profile: {
+        ...cloneInitialState().profile,
+        universityLocation: "Canada",
+        preferences: { workMode: "Hybrid okay", compensation: "Any compensation", timeCommitment: "Flexible time", schedule: "Any schedule", participation: "Team okay" },
+      },
+    });
+    expect(restored.profile.universityLocation).toBe("South Korea");
+    expect(restored.profile.preferences).toEqual({ workMode: "Hybrid okay", compensation: "Any compensation", timeCommitment: "Flexible time", schedule: "Any schedule", participation: "Team okay" });
   });
 });
 

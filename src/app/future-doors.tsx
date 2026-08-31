@@ -10,6 +10,7 @@ import {
   cloneInitialState,
   downstreamEffect,
   formatMonth,
+  getRouteFit,
   getSelectedNode,
   reviewOpportunity,
   requireActionableDoor,
@@ -342,30 +343,33 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
   </section>;
 }
 
-const simpleRouteDetails: Record<RouteId, { timing: string; signal: string }> = {
-  community: { timing: "Open now · 5–10 hours a week", signal: "Public collaboration" },
-  research: { timing: "Next cycle · 6–10 hours a week", signal: "Mentor feedback" },
-  ship: { timing: "Not available for this profile", signal: "Delivered project" },
+const simpleRouteDetails: Record<RouteId, { timing: string; signal: string; track: string; shortTrack: string }> = {
+  community: { timing: "Open now", signal: "Public collaboration", track: "Show your work", shortTrack: "SHOW" },
+  research: { timing: "Next cycle", signal: "Mentor feedback", track: "Get feedback", shortTrack: "GROW" },
+  ship: { timing: "Not available", signal: "Delivered project", track: "Make something", shortTrack: "MAKE" },
 };
 
 const routeDisplayOrder: RouteId[] = ["community", "research", "ship"];
 
-function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof }: { state: FutureDoorsState; routes: Route[]; selectedNode: PathNode; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onProof: (proofId: ProofId) => void }) {
+function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof, onSettings, onGoal }: { state: FutureDoorsState; routes: Route[]; selectedNode: PathNode; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onProof: (proofId: ProofId) => void; onSettings: () => void; onGoal: (id: string) => void }) {
+  const [track, setTrack] = useState<"all" | RouteId>("all");
   const priorities = state.priorities;
   const planned = new Set(priorities.map((id) => ROUTE_PROOF[id]));
   const attached = new Set(state.proofReceipts.map((receipt) => receipt.proofId));
   const covered = new Set([...planned, ...attached]);
   const proposal = new Set(state.priorityProposal.state === "staged" ? state.priorityProposal.routeIds : []);
   const displayRoutes = routeDisplayOrder.map((id) => routes.find((item) => item.id === id)).filter((item): item is Route => Boolean(item));
-  const selectedReason = "Choose a card to check its official rule. Add only what fits your plan.";
+  const selectedReason = "A source check comes first. You decide what joins your plan.";
+  const preferenceSummary = [state.profile.preferences.workMode, state.profile.preferences.timeCommitment, state.profile.preferences.compensation];
+  const visibleRoutes = track === "all" ? displayRoutes : displayRoutes.filter((item) => item.id === track);
 
   return <section className={`simple-plan scenario-${state.scenario}`} aria-label="Choose opportunities that build the work your goal needs">
     <header className="simple-plan-header">
-      <span><small>YOUR NEXT STEPS</small><strong>Pick up to two opportunities.</strong></span>
-      <b>{priorities.length} / {maxPriorities} SELECTED</b>
+      <span><small>NEXT 90 DAYS</small><strong>Pin up to two moves.</strong></span>
+      <b>{priorities.length} / {maxPriorities} PINNED</b>
     </header>
     <section className="simple-goal-strip" aria-label={`Goal: ${state.profile.goal}`}>
-      <div><small>YOUR GOAL</small><strong>{state.profile.goal}</strong><span>by {state.profile.targetYear}</span></div>
+      <div className="simple-goal-heading"><span><small>YOUR GOAL</small><strong>{state.profile.goal}</strong><em>by {state.profile.targetYear}</em></span><nav className="simple-goal-tabs" aria-label="Career goals">{state.goals.map((goal) => <button key={goal.id} className={goal.id === state.selectedGoalId ? "active" : ""} onClick={() => onGoal(goal.id)}>{goal.shortLabel}</button>)}</nav></div>
       <div className="simple-goal-progress" aria-label={`${covered.size} of ${goalSignalCount} work types planned or linked`}>
         {displayRoutes.map((item) => {
           const proofId = ROUTE_PROOF[item.id];
@@ -374,10 +378,21 @@ function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof
         })}
       </div>
     </section>
-    <div className="simple-route-list" aria-label="Recommended opportunities">
-      {displayRoutes.map((item, index) => {
+    <div className="simple-plan-body">
+      <div className="simple-settings-row">
+        <span><small>YOUR SETTINGS</small>{preferenceSummary.map((value) => <b key={value}>{value}</b>)}</span>
+        <button onClick={onSettings}>EDIT SETTINGS</button>
+      </div>
+      <nav className="simple-track-tabs" aria-label="Opportunity tracks">
+        <button className={track === "all" ? "active" : ""} onClick={() => setTrack("all")}>All</button>
+        {displayRoutes.map((item) => <button className={track === item.id ? "active" : ""} key={item.id} onClick={() => setTrack(item.id)}>{simpleRouteDetails[item.id].track}</button>)}
+      </nav>
+      <div className={`simple-route-list ${visibleRoutes.length === 1 ? "single" : ""}`} aria-label="Recommended opportunities">
+      {visibleRoutes.map((item) => {
           const node = item.nodes[0];
           const detail = simpleRouteDetails[item.id];
+          const fit = getRouteFit(state, item.id);
+          const sharedWith = state.goals.filter((goal) => goal.id !== state.selectedGoalId && goal.supportedRoutes.includes(item.id)).map((goal) => goal.shortLabel);
           const proofId = ROUTE_PROOF[item.id];
           const pinned = priorities.includes(item.id);
           const staged = proposal.has(item.id) && !pinned;
@@ -385,12 +400,12 @@ function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof
           const unavailable = node.status === "ineligible" || node.status === "expired" || node.status === "blocked";
           const atLimit = !pinned && priorities.length >= maxPriorities;
           const proofState = attached.has(proofId) ? "linked" : pinned ? "planned" : "needed";
-          const label = unavailable ? "NOT A FIT" : node.status === "checking" ? "CHECK FIRST" : staged ? "AGENT SUGGESTED" : "RECOMMENDED";
+          const label = unavailable ? "RULE DOESN'T FIT" : node.status === "checking" ? "CHECK OFFICIAL RULE" : staged ? "AGENT SUGGESTED" : `${fit.matches} / ${fit.total} SETTINGS MATCH`;
           return <motion.article className={`simple-route ${pinned ? "pinned" : ""} ${staged ? "staged" : ""} ${unavailable ? "unavailable" : ""} ${item.id === state.selectedRouteId ? "current" : ""}`} key={item.id} whileHover={{ y: -2 }}>
             <button className="simple-route-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
-              <i>0{index + 1}</i><span><small>{label}</small><strong>{displayNodeTitle(node)}</strong><em>{detail.timing}</em></span>
+              <i>{detail.shortTrack}</i><span><small>{label}</small><strong>{displayNodeTitle(node)}</strong><em>{detail.timing}</em><span className="simple-route-tags">{fit.reasons.map((reason) => <b key={reason}>{reason}</b>)}{sharedWith.length ? <b className="cross-goal">+ {sharedWith.join(" · ")}</b> : null}</span></span>
             </button>
-            <div className={`simple-route-outcome ${proofState}`}><small>{proofState === "linked" ? "WORK LINK SAVED" : proofState === "planned" ? "THIS WILL BUILD" : "THIS CAN BUILD"}</small><strong>{detail.signal}</strong></div>
+            <div className={`simple-route-outcome ${proofState}`}><small>{proofState === "linked" ? "WORK LINK SAVED" : proofState === "planned" ? "YOUR PLAN ADDS" : "THIS COULD ADD"}</small><strong>{detail.signal}</strong></div>
             <div className="simple-route-action">
               {pinned ? <button className="simple-proof-button" onClick={() => onProof(proofId)}>{proofState === "linked" ? "VIEW LINK" : "ADD WORK LINK"}</button>
                 : unavailable ? (node.sourceUrl ? <a href={node.sourceUrl} target="_blank" rel="noreferrer">VIEW RULE ↗</a> : <span>NOT AVAILABLE</span>)
@@ -399,6 +414,11 @@ function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof
             </div>
           </motion.article>;
       })}
+      </div>
+      {priorities.length ? <div className="simple-pinned-plan" aria-label="Pinned plan">
+        <small>YOUR PINNED PLAN</small>
+        <div>{priorities.map((id, index) => <button key={id} onClick={() => onRoute(id)}><i>{index + 1}</i><span><b>{routeNames[id].label}</b><em>{simpleRouteDetails[id].timing}</em></span></button>)}</div>
+      </div> : null}
     </div>
     <footer className="simple-plan-source">
       <span>{selectedReason}</span>
@@ -420,7 +440,7 @@ function EditorialProfile({ state, cvName, onUpload, onReview, onGoal }: { state
   </aside>;
 }
 
-function EditorialWorkspace({ state, routes, selectedNode, cvName, onUpload, onReview, onGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
+function EditorialWorkspace({ state, routes, selectedNode, cvName, onUpload, onReview, onGoal, onSelectGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
   return <section className="editorial-workspace">
     <header className="editorial-hero">
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>SAVED POST → REAL PLAN</small><h1>Choose your <em>next step.</em></h1></motion.div>
@@ -432,11 +452,11 @@ function EditorialWorkspace({ state, routes, selectedNode, cvName, onUpload, onR
         <header>
           <div><small>YOUR PLAN</small><h2>Choose the opportunities that move you toward your goal.</h2></div>
           <nav className="theater-actions" aria-label="Path inputs">
-            <button onClick={onReview}>EDIT PROFILE</button>
+            <button onClick={onReview}>SETTINGS</button>
             <button onClick={onGoal}>EDIT GOAL</button>
           </nav>
         </header>
-        <PinProofStage state={state} routes={routes} selectedNode={selectedNode} onToggle={onTogglePriority} onRoute={onRoute} onProof={onProof} />
+        <PinProofStage state={state} routes={routes} selectedNode={selectedNode} onToggle={onTogglePriority} onRoute={onRoute} onProof={onProof} onSettings={onReview} onGoal={onSelectGoal} />
       </section>
     </div>
   </section>;
@@ -464,6 +484,12 @@ function ProfileModal({ profile, cvName, proposed, onSave, onClose }: { profile:
       <label className="wide">Strengths<input value={draft.strengths.join(", ")} onChange={(e) => setField("strengths", e.target.value.split(",").map((x) => x.trim()).filter(Boolean))} /></label>
       <label className="wide">Confirmed exams / credentials<input placeholder="Optional" value={draft.credentials.join(", ")} onChange={(e) => setField("credentials", e.target.value.split(",").map((x) => x.trim()).filter(Boolean))} /></label>
       <label className="wide">Current gap<input value={draft.gap} onChange={(e) => setField("gap", e.target.value)} /></label>
+      <div className="wide preference-heading"><small>HOW SHOULD THIS PLAN FIT YOUR LIFE?</small><span>These order choices. They never decide eligibility.</span></div>
+      <label>Work style<select value={draft.preferences.workMode} onChange={(e) => setField("preferences", { ...draft.preferences, workMode: e.target.value as Profile["preferences"]["workMode"] })}><option>Remote first</option><option>Hybrid okay</option><option>On-site okay</option></select></label>
+      <label>Compensation<select value={draft.preferences.compensation} onChange={(e) => setField("preferences", { ...draft.preferences, compensation: e.target.value as Profile["preferences"]["compensation"] })}><option>Paid preferred</option><option>Paid only</option><option>Any compensation</option></select></label>
+      <label>Weekly time<select value={draft.preferences.timeCommitment} onChange={(e) => setField("preferences", { ...draft.preferences, timeCommitment: e.target.value as Profile["preferences"]["timeCommitment"] })}><option>Up to 10 hrs / week</option><option>Up to 20 hrs / week</option><option>Flexible time</option></select></label>
+      <label>Schedule<select value={draft.preferences.schedule} onChange={(e) => setField("preferences", { ...draft.preferences, schedule: e.target.value as Profile["preferences"]["schedule"] })}><option>During semester</option><option>Break only</option><option>Any schedule</option></select></label>
+      <label className="wide">Participation<select value={draft.preferences.participation} onChange={(e) => setField("preferences", { ...draft.preferences, participation: e.target.value as Profile["preferences"]["participation"] })}><option>Solo or small team</option><option>Team okay</option><option>Solo only</option></select></label>
     </div>
     <footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(draft)}>APPROVE & REBUILD PATH</button></footer>
   </ModalFrame>;
@@ -630,6 +656,22 @@ export default function FutureDoors() {
     const change = (current: FutureDoorsState) => ({ ...current, selectedRouteId: id, selectedNodeId: route.nodes[0].id, scenario: id === "ship" ? current.scenario : "baseline" as const, selectedMonth: id === "ship" ? current.selectedMonth : PATH_START, bridge: id === "ship" ? current.bridge : { ...current.bridge, state: "none" as const } });
     return actor === "agent" ? commit(actor, "Route focused", routeNames[id].label, change) : setView(change);
   }, [commit, setView]);
+  const selectCareerGoal = useCallback((goalId: string) => {
+    const requested = stateRef.current.goals.find((goal) => goal.id === goalId);
+    if (!requested) throw new Error("[UNKNOWN_GOAL_ID] Choose a goal shown in the career tabs.");
+    return commit("you", "Career goal selected", requested.title, (current) => {
+      const goal = current.goals.find((item) => item.id === goalId) ?? current.goals[0];
+      const updated = {
+        ...current,
+        selectedGoalId: goal.id,
+        profile: { ...current.profile, goal: goal.title, targetYear: goal.targetYear, gap: goal.gap },
+        scenario: "baseline" as const,
+        bridge: { ...current.bridge, state: "none" as const },
+      };
+      const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader);
+      return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 };
+    });
+  }, [commit]);
   const selectNode = useCallback((nodeId: string, actor: "you" | "agent" = "you") => { const node = requireVisibleStep(stateRef.current, nodeId); const change = (current: FutureDoorsState) => ({ ...current, selectedRouteId: node.routeId, selectedNodeId: node.id }); return actor === "agent" ? commit(actor, "Step focused", node.title, change) : setView(change); }, [commit, setView]);
   const simulateTake = useCallback((actor: "you" | "agent" = "you") => {
     requireActionableDoor(stateRef.current, "ship-challenge");
@@ -711,7 +753,7 @@ export default function FutureDoors() {
   const route = routes.find((item) => item.id === state.selectedRouteId) ?? routes[0];
   const selectedNode = getSelectedNode(state);
 
-  const saveGoal = (goal: string, targetYear: number) => { commit("you", "Goal updated", `${goal} · ${targetYear}`, (current) => { const updated = { ...current, profile: { ...current.profile, goal, targetYear }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setModal(null); };
+  const saveGoal = (goal: string, targetYear: number) => { commit("you", "Goal updated", `${goal} · ${targetYear}`, (current) => { const goals = current.goals.map((item) => item.id === current.selectedGoalId ? { ...item, title: goal, shortLabel: goal.slice(0, 22), targetYear } : item); const updated = { ...current, goals, profile: { ...current.profile, goal, targetYear }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setModal(null); };
   const saveProfile = (profile: Profile) => { commit("you", "Profile facts approved", `${profile.name} · ${profile.residence}`, (current) => { const updated = { ...current, profile, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setProposedProfile(null); setModal(null); };
   const uploadCv = (file: File) => { setCvName(`Selected · ${file.name}`); commit("you", "CV selected", "Review facts before the path uses them", (current) => ({ ...current, replayToken: current.replayToken + 1 })); setProposedProfile(null); setModal("profile"); };
   const connectOpportunity = (id: string) => {
@@ -729,7 +771,7 @@ export default function FutureDoors() {
   return <main className="spatial-shell editorial-shell">
     <AnimatePresence>{introVisible ? <OpeningSequence onDone={() => setIntroVisible(false)} /> : null}</AnimatePresence>
     <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → GOAL</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD VIA CHATGPT{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
-    {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
+    {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onSelectGoal={selectCareerGoal} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}
       {modal === "goal" ? <GoalModal profile={state.profile} onSave={saveGoal} onClose={() => setModal(null)} /> : null}
