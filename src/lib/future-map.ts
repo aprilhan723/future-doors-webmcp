@@ -916,7 +916,7 @@ export function sanitizePersistedState(value: unknown): FutureDoorsState {
   // Eligibility-driving profile facts are approvals, not browser preferences.
   // A local draft cannot become a confirmed fact after reload.
   const rawProfile = isRecord(value.profile) ? value.profile : {};
-  const profile: Profile = {
+  const profileBase: Profile = {
     ...base.profile,
     // Practical preferences are user choices, not asserted eligibility facts.
     // They can safely restore as a local draft without changing an official rule result.
@@ -924,6 +924,7 @@ export function sanitizePersistedState(value: unknown): FutureDoorsState {
   };
   const goals = sanitizeCareerGoals(value.goals, base.goals);
   const selectedGoalId = typeof value.selectedGoalId === "string" && goals.some((goal) => goal.id === value.selectedGoalId) ? value.selectedGoalId : goals[0].id;
+  const profile: Profile = profileBase;
 
   let selectedMonth = base.selectedMonth;
   try { selectedMonth = requirePathMonth(value.selectedMonth); } catch { /* Keep the safe baseline month. */ }

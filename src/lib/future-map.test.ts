@@ -114,6 +114,22 @@ describe("path input validation", () => {
     expect(restored.profile.universityLocation).toBe("South Korea");
     expect(restored.profile.preferences).toEqual({ workMode: "Hybrid okay", compensation: "Any compensation", timeCommitment: "Flexible time", schedule: "Any schedule", participation: "Team okay" });
   });
+
+  it("keeps at most four user-created career directions", () => {
+    const base = cloneInitialState();
+    const goals = Array.from({ length: 5 }, (_, index) => ({
+      id: `goal-${index + 1}`,
+      title: `Direction ${index + 1}`,
+      shortLabel: `D${index + 1}`,
+      targetYear: 2030,
+      gap: "A visible proof of work",
+      supportedRoutes: ["ship", "community", "research"],
+    }));
+    const restored = sanitizePersistedState({ profile: base.profile, goals, selectedGoalId: "goal-4" });
+    expect(restored.goals).toHaveLength(4);
+    expect(restored.selectedGoalId).toBe("goal-4");
+    expect(restored.profile.goal).toBe("Direction 4");
+  });
 });
 
 describe("agent output budgets", () => {

@@ -351,7 +351,7 @@ const simpleRouteDetails: Record<RouteId, { timing: string; signal: string; trac
 
 const routeDisplayOrder: RouteId[] = ["community", "research", "ship"];
 
-function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof, onSettings, onGoal }: { state: FutureDoorsState; routes: Route[]; selectedNode: PathNode; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onProof: (proofId: ProofId) => void; onSettings: () => void; onGoal: (id: string) => void }) {
+function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof, onSettings, onGoal, onAddGoal }: { state: FutureDoorsState; routes: Route[]; selectedNode: PathNode; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onProof: (proofId: ProofId) => void; onSettings: () => void; onGoal: (id: string) => void; onAddGoal: () => void }) {
   const [track, setTrack] = useState<"all" | RouteId>("all");
   const priorities = state.priorities;
   const planned = new Set(priorities.map((id) => ROUTE_PROOF[id]));
@@ -369,7 +369,7 @@ function PinProofStage({ state, routes, selectedNode, onToggle, onRoute, onProof
       <b>{priorities.length} / {maxPriorities} PINNED</b>
     </header>
     <section className="simple-goal-strip" aria-label={`Goal: ${state.profile.goal}`}>
-      <div className="simple-goal-heading"><span><small>YOUR GOAL</small><strong>{state.profile.goal}</strong><em>by {state.profile.targetYear}</em></span><nav className="simple-goal-tabs" aria-label="Career goals">{state.goals.map((goal) => <button key={goal.id} className={goal.id === state.selectedGoalId ? "active" : ""} onClick={() => onGoal(goal.id)}>{goal.shortLabel}</button>)}</nav></div>
+      <div className="simple-goal-heading"><span><small>YOUR GOAL</small><strong>{state.profile.goal}</strong><em>by {state.profile.targetYear}</em></span><nav className="simple-goal-tabs" aria-label="Career goals">{state.goals.map((goal) => <button key={goal.id} className={goal.id === state.selectedGoalId ? "active" : ""} onClick={() => onGoal(goal.id)}>{goal.shortLabel}</button>)}{state.goals.length < 4 ? <button className="add-goal" onClick={onAddGoal} aria-label="Add another career direction">＋</button> : null}</nav></div>
       <div className="simple-goal-progress" aria-label={`${covered.size} of ${goalSignalCount} work types planned or linked`}>
         {displayRoutes.map((item) => {
           const proofId = ROUTE_PROOF[item.id];
@@ -440,7 +440,7 @@ function EditorialProfile({ state, cvName, onUpload, onReview, onGoal }: { state
   </aside>;
 }
 
-function EditorialWorkspace({ state, routes, selectedNode, cvName, onUpload, onReview, onGoal, onSelectGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
+function EditorialWorkspace({ state, routes, selectedNode, cvName, onUpload, onReview, onGoal, onSelectGoal, onAddGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onAddGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
   return <section className="editorial-workspace">
     <header className="editorial-hero">
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>SAVED POST → REAL PLAN</small><h1>Choose your <em>next step.</em></h1></motion.div>
@@ -456,7 +456,7 @@ function EditorialWorkspace({ state, routes, selectedNode, cvName, onUpload, onR
             <button onClick={onGoal}>EDIT GOAL</button>
           </nav>
         </header>
-        <PinProofStage state={state} routes={routes} selectedNode={selectedNode} onToggle={onTogglePriority} onRoute={onRoute} onProof={onProof} onSettings={onReview} onGoal={onSelectGoal} />
+        <PinProofStage state={state} routes={routes} selectedNode={selectedNode} onToggle={onTogglePriority} onRoute={onRoute} onProof={onProof} onSettings={onReview} onGoal={onSelectGoal} onAddGoal={onAddGoal} />
       </section>
     </div>
   </section>;
@@ -495,10 +495,12 @@ function ProfileModal({ profile, cvName, proposed, onSave, onClose }: { profile:
   </ModalFrame>;
 }
 
-function GoalModal({ profile, onSave, onClose }: { profile: Profile; onSave: (goal: string, year: number) => void; onClose: () => void }) {
-  const [goal, setGoal] = useState(profile.goal);
-  const [year, setYear] = useState(profile.targetYear);
-  return <ModalFrame label="SET A DIRECTION" title="Where should this path lead?" onClose={onClose} className="goal-modal"><div className="modal-fields"><label className="wide">Goal<input autoFocus value={goal} onChange={(e) => setGoal(e.target.value)} /></label><label>Target year<input type="number" min="2027" max="2040" value={year} onChange={(e) => setYear(Number(e.target.value) || profile.targetYear)} /></label></div><p className="modal-note">The route updates. Future Doors never predicts hiring or acceptance.</p><footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(goal.trim() || profile.goal, Math.min(2040, Math.max(2027, year)))}>REBUILD PATH</button></footer></ModalFrame>;
+function GoalModal({ profile, mode, onSave, onClose }: { profile: Profile; mode: "edit" | "add"; onSave: (goal: string, year: number, gap: string) => void; onClose: () => void }) {
+  const adding = mode === "add";
+  const [goal, setGoal] = useState(adding ? "" : profile.goal);
+  const [year, setYear] = useState(adding ? Math.max(2027, profile.targetYear) : profile.targetYear);
+  const [gap, setGap] = useState(adding ? "A visible proof of work" : profile.gap);
+  return <ModalFrame label={adding ? "ADD A DIRECTION" : "SET A DIRECTION"} title={adding ? "Keep another future open" : "Where should this path lead?"} onClose={onClose} className="goal-modal"><div className="modal-fields"><label className="wide">Direction<input autoFocus placeholder="For example, Sustainability product builder" value={goal} onChange={(e) => setGoal(e.target.value)} /></label><label>Target year<input type="number" min="2027" max="2040" value={year} onChange={(e) => setYear(Number(e.target.value) || profile.targetYear)} /></label><label className="wide">What would show progress?<input value={gap} onChange={(e) => setGap(e.target.value)} /></label></div><p className="modal-note">You can keep up to four directions. This plan shows useful evidence, never a hiring or acceptance prediction.</p><footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(goal.trim() || (adding ? "New direction" : profile.goal), Math.min(2040, Math.max(2027, year)), gap.trim() || "A visible proof of work")}>{adding ? "ADD TO MY GOALS" : "REBUILD PATH"}</button></footer></ModalFrame>;
 }
 
 function BridgeModal({ state, onApprove, onClose }: { state: FutureDoorsState; onApprove: () => void; onClose: () => void }) {
@@ -617,6 +619,7 @@ export default function FutureDoors() {
   const [state, setState] = useState<FutureDoorsState>(() => cloneInitialState());
   const [hydrated, setHydrated] = useState(false);
   const [modal, setModal] = useState<Modal>(null);
+  const [goalModalMode, setGoalModalMode] = useState<"edit" | "add">("edit");
   const [cvName, setCvName] = useState("Sample · Maya_Park.pdf");
   const [proposedProfile, setProposedProfile] = useState<Profile | null>(null);
   const [reviewOpportunityId, setReviewOpportunityId] = useState<string | null>(null);
@@ -753,7 +756,16 @@ export default function FutureDoors() {
   const route = routes.find((item) => item.id === state.selectedRouteId) ?? routes[0];
   const selectedNode = getSelectedNode(state);
 
-  const saveGoal = (goal: string, targetYear: number) => { commit("you", "Goal updated", `${goal} · ${targetYear}`, (current) => { const goals = current.goals.map((item) => item.id === current.selectedGoalId ? { ...item, title: goal, shortLabel: goal.slice(0, 22), targetYear } : item); const updated = { ...current, goals, profile: { ...current.profile, goal, targetYear }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setModal(null); };
+  const saveGoal = (goal: string, targetYear: number, gap: string) => { commit("you", "Goal updated", `${goal} · ${targetYear}`, (current) => { const goals = current.goals.map((item) => item.id === current.selectedGoalId ? { ...item, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap } : item); const updated = { ...current, goals, profile: { ...current.profile, goal, targetYear, gap }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setModal(null); };
+  const addCareerGoal = (goal: string, targetYear: number, gap: string) => { commit("you", "Career goal added", `${goal} · ${targetYear}`, (current) => {
+    if (current.goals.length >= 4) return current;
+    const slug = goal.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 28) || "direction";
+    const id = `${slug}-${Date.now().toString(36)}`;
+    const nextGoal = { id, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap, supportedRoutes: ["ship", "community", "research"] as RouteId[] };
+    const updated = { ...current, goals: [...current.goals, nextGoal], selectedGoalId: id, profile: { ...current.profile, goal, targetYear, gap }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } };
+    const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader);
+    return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 };
+  }); setModal(null); };
   const saveProfile = (profile: Profile) => { commit("you", "Profile facts approved", `${profile.name} · ${profile.residence}`, (current) => { const updated = { ...current, profile, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setProposedProfile(null); setModal(null); };
   const uploadCv = (file: File) => { setCvName(`Selected · ${file.name}`); commit("you", "CV selected", "Review facts before the path uses them", (current) => ({ ...current, replayToken: current.replayToken + 1 })); setProposedProfile(null); setModal("profile"); };
   const connectOpportunity = (id: string) => {
@@ -771,10 +783,10 @@ export default function FutureDoors() {
   return <main className="spatial-shell editorial-shell">
     <AnimatePresence>{introVisible ? <OpeningSequence onDone={() => setIntroVisible(false)} /> : null}</AnimatePresence>
     <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → GOAL</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD VIA CHATGPT{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
-    {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onSelectGoal={selectCareerGoal} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
+    {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => { setGoalModalMode("edit"); setModal("goal"); }} onSelectGoal={selectCareerGoal} onAddGoal={() => { setGoalModalMode("add"); setModal("goal"); }} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}
-      {modal === "goal" ? <GoalModal profile={state.profile} onSave={saveGoal} onClose={() => setModal(null)} /> : null}
+      {modal === "goal" ? <GoalModal profile={state.profile} mode={goalModalMode} onSave={goalModalMode === "add" ? addCareerGoal : saveGoal} onClose={() => setModal(null)} /> : null}
       {modal === "bridge" ? <BridgeModal state={state} onApprove={approveBridge} onClose={() => setModal(null)} /> : null}
       {modal === "priority" ? <PriorityModal state={state} onApprove={approvePriorities} onClose={() => setModal(null)} /> : null}
       {modal === "proof" ? <ProofModal state={state} proofId={selectedProofId} onApprove={approveProofReceipt} onClose={() => setModal(null)} /> : null}
