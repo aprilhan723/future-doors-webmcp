@@ -11,6 +11,7 @@ import {
   formatMonth,
   getSelectedNode,
   reviewOpportunity,
+  requireActionableDoor,
   requireDoorId,
   requirePathMonth,
   requireRouteId,
@@ -32,7 +33,7 @@ import {
 } from "@/lib/webmcp";
 
 type Modal = "bridge" | "capture" | "tools" | "goal" | "profile" | "why" | "priority" | null;
-const stateStorageKey = "future-doors:shared-path:v2";
+const stateStorageKey = "future-doors:shared-path:v3";
 
 const routeNames: Record<RouteId, { label: string; short: string; reason: string }> = {
   ship: { label: "Build & ship", short: "SHIP", reason: "Fastest proof" },
@@ -46,6 +47,7 @@ const statusCopy: Record<PathNode["status"], string> = {
   checking: "CHECK FIRST",
   future: "LATER",
   locked: "NEXT",
+  ineligible: "NOT THIS COHORT",
   expired: "CLOSED",
   blocked: "NEEDS ANOTHER WAY",
   simulated: "DONE IN TRY-OUT",
@@ -70,7 +72,7 @@ function makeId(prefix: string) {
 
 function DoorGlyph({ status }: { status: PathNode["status"] }) {
   const open = ["available", "ready", "simulated", "strengthened"].includes(status);
-  const closed = status === "expired" || status === "blocked";
+  const closed = status === "expired" || status === "blocked" || status === "ineligible";
   return (
     <span className={`door-glyph ${open ? "is-open" : ""} ${closed ? "is-closed" : ""}`} aria-hidden="true">
       <i><b /></i>
@@ -81,7 +83,7 @@ function DoorGlyph({ status }: { status: PathNode["status"] }) {
 }
 
 function PremiumPortal({ status = "available", hero = false }: { status?: PathNode["status"]; hero?: boolean }) {
-  const closed = status === "expired" || status === "blocked";
+  const closed = status === "expired" || status === "blocked" || status === "ineligible";
   return <span className={`premium-portal ${hero ? "portal-hero" : "portal-stage"} ${closed ? "portal-closed" : "portal-open"}`} aria-hidden="true">
     <i className="portal-aura" />
     <i className="portal-light-ray ray-left" /><i className="portal-light-ray ray-right" />
@@ -282,7 +284,7 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
       <p>Add a screenshot or link. The agent checks the official rules and shows what the opportunity can create. <b>You decide what joins your path.</b></p>
       <div className="launch-actions">
         <button className="launch-primary" onClick={onDemo}>TRY THE 30-SECOND DEMO <span>→</span></button>
-        <button onClick={onAdd}>ADD MY OPPORTUNITY <span>＋</span></button>
+        <button onClick={onAdd}>USE A SCREENSHOT IN CHATGPT <span>＋</span></button>
       </div>
       <button className="launch-explain" onClick={onTools}>WHY THIS NEEDS WEBMCP ↗</button>
     </motion.div>
@@ -306,7 +308,7 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
 const journeyLinks = ["CREATES", "OPENS", "BUILDS TOWARD"] as const;
 
 const scrapbookDetails: Record<RouteId, { apply: string; activity: string; load: string; signal: string }> = {
-  ship: { apply: "By Sep 1", activity: "Application + contribution", load: "30H/WK IF SELECTED", signal: "Mentor-reviewed work" },
+  ship: { apply: "By Sep 1", activity: "Application + contribution", load: "30H/WK IF SELECTED", signal: "Delivered project" },
   community: { apply: "Any time", activity: "4–8 weeks", load: "5–10H/WK", signal: "Public collaboration" },
   research: { apply: "Next cycle", activity: "12+ weeks", load: "6–10H/WK", signal: "Mentor feedback" },
 };
@@ -332,11 +334,12 @@ function PinProofStage({ state, routes, route, selectedNode, onToggle, onRoute, 
           const pinned = priorities.includes(item.id);
           const staged = proposal.has(item.id) && !pinned;
           const priority = priorities.indexOf(item.id) + 1;
-          return <motion.article key={item.id} className={`${pinned ? "pinned" : ""} ${staged ? "staged" : ""} ${item.id === state.selectedRouteId ? "current" : ""}`} whileHover={{ x: 2 }}>
+          const unavailable = node.status === "ineligible" || node.status === "expired" || node.status === "blocked";
+          return <motion.article key={item.id} className={`${pinned ? "pinned" : ""} ${staged ? "staged" : ""} ${unavailable ? "unavailable" : ""} ${item.id === state.selectedRouteId ? "current" : ""}`} whileHover={{ x: 2 }}>
             <button className="saved-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
               <i>0{index + 1}</i><span><strong>{displayNodeTitle(node)}</strong><small>APPLY {detail.apply} · {detail.activity} · {detail.load}</small></span>
             </button>
-            <button className="pin-control" onClick={() => onToggle(item.id)} aria-label={`${pinned ? "Remove" : "Pin"} ${displayNodeTitle(node)}`} aria-pressed={pinned}>{pinned ? `P${priority}` : staged ? "AGENT?" : "+ PIN"}</button>
+            <button className="pin-control" disabled={unavailable} onClick={() => onToggle(item.id)} aria-label={unavailable ? `${displayNodeTitle(node)} cannot be pinned` : `${pinned ? "Remove" : "Pin"} ${displayNodeTitle(node)}`} aria-pressed={pinned}>{unavailable ? "CLOSED" : pinned ? `P${priority}` : staged ? "AGENT?" : "+ PIN"}</button>
           </motion.article>;
         })}
       </div>
@@ -351,8 +354,8 @@ function PinProofStage({ state, routes, route, selectedNode, onToggle, onRoute, 
     <div className="causal-breadcrumb" aria-label="Selected opportunity chain">
       {route.nodes.map((node, index) => <span key={node.id}><button className={node.id === selectedNode.id ? "selected" : ""} onClick={() => onNode(node)}><small>{cardStatus(node)}</small><strong>{displayNodeTitle(node)}</strong></button>{index < route.nodes.length - 1 ? <i className={state.scenario === "miss" && index === 0 ? "broken" : ""}>{state.scenario === "miss" && index === 0 ? "BREAKS" : journeyLinks[index]}</i> : null}</span>)}
     </div>
-    <footer className={`pin-proof-source ${sourceBacked ? "checked" : "planned"}`}>
-      <span>{sourceBacked ? "✓ OFFICIAL RULE CHECKED" : "PATH LOGIC"}</span>
+    <footer className={`pin-proof-source ${selectedNode.status === "ineligible" ? "mismatch" : sourceBacked ? "checked" : "planned"}`}>
+      <span>{selectedNode.status === "ineligible" ? "× RULE DOES NOT MATCH" : selectedNode.kind === "bridge" ? "SOURCE B · AGENT INFERENCE" : sourceBacked ? "SOURCE FOUND" : "PATH LOGIC"}</span>
       <p>{selectedNode.sourceClause ?? selectedNode.edgeToNext?.label ?? selectedNode.description}</p>
       {selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OPEN SOURCE ↗</a> : <button onClick={onTools}>HOW IT WAS CHECKED ↗</button>}
     </footer>
@@ -374,11 +377,14 @@ function EditorialProfile({ state, cvName, onUpload, onReview, onGoal }: { state
 
 function EditorialDecision({ state, route, onTake, onMiss, onRepair, onReset }: { state: FutureDoorsState; route: Route; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void }) {
   const last = state.activity[0];
+  const firstDoor = route.nodes[0];
   const status = <em className={`change-author ${last?.actor ?? "system"}`}>LAST CHANGE · {last?.actor.toUpperCase() ?? "SYSTEM"} · {last?.label ?? "Path ready"}</em>;
   if (route.id !== "ship") return <div className="editorial-decision"><span><small>ANOTHER ROUTE</small><strong>{route.summary}</strong>{status}</span><button onClick={onReset}>BACK TO BEST ROUTE</button></div>;
+  if (firstDoor.status === "ineligible") return <div className="editorial-decision danger"><span><small>OFFICIAL RULE DOES NOT MATCH</small><strong>This door stays closed. Plan a different proof path.</strong>{status}</span><button className="accent" onClick={onRepair}>PLAN ANOTHER ROUTE →</button></div>;
+  if (firstDoor.status === "checking") return <div className="editorial-decision danger"><span><small>ONE FACT STILL NEEDS CONFIRMING</small><strong>This door cannot be taken yet.</strong>{status}</span><button onClick={onReset}>KEEP CHECKING</button></div>;
   if (state.scenario === "miss") return <div className="editorial-decision danger"><span><small>THE PATH STOPS HERE</small><strong>The next step has no proof to use.</strong>{status}</span><button className="accent" onClick={onRepair}>FIND A DETOUR →</button><button onClick={onReset}>RESET</button></div>;
-  if (state.scenario === "take") return <div className="editorial-decision success"><span><small>PROOF CREATED</small><strong>The next door is now ready.</strong>{status}</span><button onClick={onReset}>TRY AGAIN</button></div>;
-  if (state.scenario === "rerouted") return <div className="editorial-decision success"><span><small>PATH REPAIRED</small><strong>Same proof · {state.bridge.eta}.</strong>{status}</span><button onClick={onReset}>TRY AGAIN</button></div>;
+  if (state.scenario === "take") return <div className="editorial-decision success"><span><small>SIMULATED RESULT</small><strong>No proof is earned until a real artifact is attached.</strong>{status}</span><button onClick={onReset}>TRY AGAIN</button></div>;
+  if (state.scenario === "rerouted") return <div className="editorial-decision success"><span><small>ALTERNATIVE PLANNED</small><strong>Outreachy stays closed · public proof plan {state.bridge.eta}.</strong>{status}</span><button onClick={onReset}>TRY AGAIN</button></div>;
   return <div className="editorial-decision"><span><small>TRY THE FUTURE</small><strong>What happens to the path?</strong>{status}</span><button className="accent" onClick={onTake}>TAKE THIS DOOR →</button><button onClick={onMiss}>SKIP IT</button></div>;
 }
 
@@ -393,7 +399,7 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
     </header>
     <div className="editorial-grid">
       <EditorialProfile state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} />
-      <section className="door-theater" aria-label="Your verified opportunity path">
+      <section className="door-theater" aria-label="Your source-backed opportunity path">
         <header>
           <div><small>YOUR WHOLE PATH</small><h2>One door creates what the next door needs.</h2></div>
           <input ref={uploadRef} hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); }} />
@@ -412,7 +418,7 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
         <motion.div key={selectedNode.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <span className="inspector-number">0{Math.min(selectedNode.stage, 9)}</span><h3>{displayNodeTitle(selectedNode)}</h3><p>{selectedNode.description}</p>
         </motion.div>
-        <section><header><small>{proposedSource ? "PROPOSED SOURCE" : sourceBacked ? "OFFICIAL RULE" : "PATH LOGIC"}</small><span>{proposedSource ? "YOU APPROVED" : sourceBacked ? "CHECKED" : "PLANNED"}</span></header><p>{selectedNode.sourceClause ?? selectedNode.edgeToNext?.label ?? "A direction, never a prediction."}</p>{selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OPEN SOURCE ↗</a> : null}</section>
+        <section><header><small>{proposedSource ? "AGENT INFERENCE + SOURCE" : sourceBacked ? "OFFICIAL RULE" : "PATH LOGIC"}</small><span>{selectedNode.status === "ineligible" ? "DOES NOT MATCH" : proposedSource ? "YOU APPROVED" : sourceBacked ? "SOURCE FOUND" : "PLANNED"}</span></header><p>{selectedNode.sourceClause ?? selectedNode.edgeToNext?.label ?? "A direction, never a prediction."}</p>{selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OPEN SOURCE ↗</a> : null}</section>
         <div className="agent-boundary"><span>AGENT</span><p>Checks the source and stages changes.</p><span>YOU</span><p>Approve what joins the path.</p></div>
         <button onClick={onTools}>HOW THE AGENT HELPS ↗</button>
       </aside>
@@ -435,6 +441,7 @@ function ProfileModal({ profile, cvName, proposed, onSave, onClose }: { profile:
       <label>Graduation<input type="month" value={draft.graduationMonth} onChange={(e) => setField("graduationMonth", e.target.value)} /></label>
       <label>Nationality<input value={draft.nationality} onChange={(e) => setField("nationality", e.target.value)} /></label>
       <label>Residence<input value={draft.residence} onChange={(e) => setField("residence", e.target.value)} /></label>
+      <label>University location<input value={draft.universityLocation} onChange={(e) => setField("universityLocation", e.target.value)} /></label>
       <label>Current status<input value={draft.studyStatus} onChange={(e) => setField("studyStatus", e.target.value)} /></label>
       <label>Field / focus<input value={draft.fieldOfStudy} onChange={(e) => setField("fieldOfStudy", e.target.value)} /></label>
       <label>Work authorization<input value={draft.workAuthorization} onChange={(e) => setField("workAuthorization", e.target.value)} /></label>
@@ -453,7 +460,7 @@ function GoalModal({ profile, onSave, onClose }: { profile: Profile; onSave: (go
 }
 
 function BridgeModal({ state, onApprove, onClose }: { state: FutureDoorsState; onApprove: () => void; onClose: () => void }) {
-  return <ModalFrame label="ANOTHER WAY · WAITING FOR YOU" title="Replace the missed step" onClose={onClose} className="bridge-modal"><div className="bridge-flow"><span><small>MISSED</small><b>Outreachy · Dec 2026</b></span><i>→</i><span className="proposed"><small>AGENT PROPOSAL</small><b>{state.bridge.title}</b><em>{state.bridge.eta}</em></span><i>→</i><span><small>INTENDED OUTPUTS</small>{state.bridge.outputs.map((item) => <b key={item}>✓ {item}</b>)}</span></div><div className="bridge-reason"><div><small>WHY THE AGENT SUGGESTED IT</small><p>{state.bridge.rationale}</p></div><div><small>SOURCE TO REVIEW</small><blockquote>{state.bridge.sourceClause}</blockquote><a href={state.bridge.sourceUrl} target="_blank" rel="noreferrer">Open proposed source ↗</a></div></div><footer><span>This source is proposed, not independently verified. Only you can adopt it.</span><button onClick={onClose}>KEEP OLD PATH</button><button className="primary" onClick={onApprove}>USE THIS WAY</button></footer></ModalFrame>;
+  return <ModalFrame label="DIFFERENT PROOF PATH · WAITING FOR YOU" title="Plan around the closed door" onClose={onClose} className="bridge-modal"><div className="bridge-flow"><span><small>RULE DOES NOT MATCH</small><b>Outreachy · Dec 2026</b></span><i>→</i><span className="proposed"><small>AGENT PROPOSAL</small><b>{state.bridge.title}</b><em>{state.bridge.eta}</em></span><i>→</i><span><small>PLANNED OUTPUTS</small>{state.bridge.outputs.map((item) => <b key={item}>○ {item}</b>)}</span></div><div className="bridge-reason"><div><small>AGENT INFERENCE</small><p>{state.bridge.rationale} This may fill a career proof gap; it does not restore Outreachy eligibility.</p></div><div><small>SOURCE B · WHAT IT ACTUALLY SUPPORTS</small><blockquote>{state.bridge.sourceClause}</blockquote><a href={state.bridge.sourceUrl} target="_blank" rel="noreferrer">Open proposed source ↗</a></div></div><footer><span>Outreachy stays closed. The outputs remain planned until you attach real work.</span><button onClick={onClose}>KEEP CURRENT PLAN</button><button className="primary" onClick={onApprove}>APPROVE NEW PLAN</button></footer></ModalFrame>;
 }
 
 function PriorityModal({ state, onApprove, onClose }: { state: FutureDoorsState; onApprove: () => void; onClose: () => void }) {
@@ -467,9 +474,9 @@ function PriorityModal({ state, onApprove, onClose }: { state: FutureDoorsState;
 
 function CaptureModal({ candidates, selectedId, profile, onSelect, onConnect, onClose }: { candidates: OpportunityCandidate[]; selectedId: string | null; profile: Profile; onSelect: (id: string) => void; onConnect: (id: string) => void; onClose: () => void }) {
   const candidate = candidates.find((item) => item.id === selectedId) ?? candidates[0];
-  if (!candidate) return <ModalFrame label="FROM A SAVED POST TO YOUR PATH" title="Add a saved opportunity" onClose={onClose} className="capture-modal">
+  if (!candidate) return <ModalFrame label="THE INPUT HAPPENS IN CHATGPT" title="Continue with a screenshot or link" onClose={onClose} className="capture-modal">
     <div className="capture-steps"><span><b>1</b><strong>Share a screenshot</strong><small>Drop an Instagram post, LinkedIn post, or poster into ChatGPT.</small></span><i>→</i><span><b>2</b><strong>We find the official page</strong><small>The agent checks the real deadline and the rules that matter to you.</small></span><i>→</i><span><b>3</b><strong>You choose where it goes</strong><small>It joins your path only when it helps the next step.</small></span></div>
-    <div className="capture-prompt"><small>TRY IN CHATGPT</small><p>“Find the official page for this screenshot. Check whether I qualify and add it here for me to review.”</p></div>
+    <div className="capture-prompt"><small>ONE NEXT ACTION · SEND THIS WITH YOUR SCREENSHOT</small><p>“Find the official page for this. Check the rule against my profile, then stage it in Future Doors for my review.”</p></div>
     <footer><span>A screenshot is only a clue. We always look for the official page.</span><button onClick={onClose}>DONE</button></footer>
   </ModalFrame>;
 
@@ -568,10 +575,13 @@ export default function FutureDoors() {
     return actor === "agent" ? commit(actor, "Route focused", routeNames[id].label, change) : setView(change);
   }, [commit, setView]);
   const selectNode = useCallback((nodeId: string, actor: "you" | "agent" = "you") => { const node = requireVisibleStep(stateRef.current, nodeId); const change = (current: FutureDoorsState) => ({ ...current, selectedRouteId: node.routeId, selectedNodeId: node.id }); return actor === "agent" ? commit(actor, "Step focused", node.title, change) : setView(change); }, [commit, setView]);
-  const simulateTake = useCallback((actor: "you" | "agent" = "you") => commit(actor, "Opportunity taken in try-out", "Three useful results now reach the next step", (current) => ({ ...current, selectedMonth: "2026-08", selectedRouteId: "ship", selectedNodeId: "ship-proof", scenario: "take", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 })), [commit]);
+  const simulateTake = useCallback((actor: "you" | "agent" = "you") => {
+    requireActionableDoor(stateRef.current, "ship-challenge");
+    return commit(actor, "Try-out completed", "Simulated results only — no proof was earned", (current) => ({ ...current, selectedMonth: "2026-08", selectedRouteId: "ship", selectedNodeId: "ship-proof", scenario: "take", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 }));
+  }, [commit]);
   const simulateMiss = useCallback((actor: "you" | "agent" = "you") => commit(actor, "Opportunity missed in try-out", "The next step is now missing the work it needs", (current) => ({ ...current, selectedMonth: "2026-09", selectedRouteId: "ship", selectedNodeId: "ship-proof", scenario: "miss", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 })), [commit]);
   const stageDefaultBridge = useCallback(() => { commit("system", "Another way suggested", "An agent can suggest this through WebMCP", (current) => ({ ...current, bridge: { ...current.bridge, state: "staged" } })); setModal("bridge"); }, [commit]);
-  const approveBridge = useCallback(() => { commit("you", "Another way approved", `Same useful work · ${stateRef.current.bridge.eta}`, (current) => ({ ...current, scenario: "rerouted", selectedRouteId: "ship", selectedNodeId: "ship-bridge", bridge: { ...current.bridge, state: "approved" }, replayToken: current.replayToken + 1 })); setModal(null); }, [commit]);
+  const approveBridge = useCallback(() => { commit("you", "Different proof path approved", `Outreachy stays closed · ${stateRef.current.bridge.eta} plan`, (current) => ({ ...current, scenario: "rerouted", selectedRouteId: "ship", selectedNodeId: "ship-bridge", priorities: ["community"], bridge: { ...current.bridge, state: "approved" }, replayToken: current.replayToken + 1 })); setModal(null); }, [commit]);
   const reset = useCallback((actor: "you" | "agent" = "you") => { const next = cloneInitialState(); next.profile = stateRef.current.profile; next.opportunities = stateRef.current.opportunities; next.priorities = stateRef.current.priorities; next.activity = [{ id: makeId("activity"), actor, label: "Try-out reset", detail: "Starting path restored" }, ...stateRef.current.activity].slice(0, 6); stateRef.current = next; setState(next); setModal(null); return summarizeState(next); }, []);
   const stageProfileFacts = useCallback((proposal: Parameters<FutureDoorsActions["stageProfileFacts"]>[0]) => {
     const clean = Object.fromEntries(Object.entries(proposal).filter(([, value]) => value !== undefined));
@@ -590,6 +600,7 @@ export default function FutureDoors() {
     return { status: "ready_for_human_review", id, title: proposal.title, officialSource: proposal.sourceUrl, deadline: proposal.deadlineText, humanApprovalRequired: true };
   }, [commit]);
   const stagePriorityPlan = useCallback((proposal: Parameters<FutureDoorsActions["stagePriorityPlan"]>[0]) => {
+    if (proposal.routeIds.includes("ship") && buildRoutes(stateRef.current).find((item) => item.id === "ship")?.nodes[0].status === "ineligible") throw new Error("[INELIGIBLE_PRIORITY] Outreachy Dec 2026 cannot be proposed for this confirmed university location. Choose a route that remains available.");
     commit("agent", "Priority plan staged", proposal.routeIds.map((id) => routeNames[id].label).join(" → "), (current) => ({ ...current, priorityProposal: { state: "staged", ...proposal } }));
     setModal("priority");
     return { status: "staged", routeIds: proposal.routeIds, humanApprovalRequired: true };
@@ -599,6 +610,8 @@ export default function FutureDoors() {
     setModal(null);
   }, [commit]);
   const togglePriority = useCallback((id: RouteId) => {
+    const firstDoor = buildRoutes(stateRef.current).find((item) => item.id === id)?.nodes[0];
+    if (firstDoor?.status === "ineligible" || firstDoor?.status === "expired" || firstDoor?.status === "blocked") return;
     commit("you", "Priority changed", routeNames[id].label, (current) => {
       const next = current.priorities.includes(id) ? current.priorities.filter((item) => item !== id) : current.priorities.length < 2 ? [...current.priorities, id] : current.priorities;
       return { ...current, priorities: next, priorityProposal: { state: "none", routeIds: [], rationale: "" } };
@@ -611,7 +624,7 @@ export default function FutureDoors() {
     movePathClock: (month, actor = "you") => { const valid = requirePathMonth(month); return commit(actor, "Path clock moved", formatMonth(valid), (current) => ({ ...current, selectedMonth: valid, replayToken: current.replayToken + 1 })); },
     simulateTakeDoor: (doorId, actor = "you") => { requireDoorId(doorId); return simulateTake(actor); },
     simulateMissedDoor: (doorId, actor = "you") => { requireDoorId(doorId); return simulateMiss(actor); },
-    stageBridgeFromSource: (proposal) => { if (stateRef.current.scenario !== "miss") throw new Error("[PATH_NOT_BROKEN] Try missing the first opportunity before suggesting another way."); const result = commit("agent", "Another way suggested", "Waiting for your approval", (current) => ({ ...current, bridge: { ...proposal, state: "staged" } })); setModal("bridge"); return result; },
+    stageBridgeFromSource: (proposal) => { const firstDoor = buildRoutes(stateRef.current).find((item) => item.id === "ship")?.nodes[0]; if (stateRef.current.scenario !== "miss" && firstDoor?.status !== "ineligible") throw new Error("[PATH_NOT_BLOCKED] Suggest another way only after a door is missed or an official rule does not match."); const result = commit("agent", "Different proof path staged", "Waiting for your approval", (current) => ({ ...current, bridge: { ...proposal, state: "staged" } })); setModal("bridge"); return result; },
     pinConstraint: (constraint, actor = "you") => commit(actor, "Constraint pinned", constraint, (current) => ({ ...current, pinnedConstraints: current.pinnedConstraints.includes(constraint) ? current.pinnedConstraints : [...current.pinnedConstraints, constraint].slice(-5) })),
     compareRoutes: () => summarizeRouteComparison(stateRef.current),
     explainDownstreamEffect: (stepId, actor = "you") => { requireVisibleStep(stateRef.current, stepId); selectNode(stepId, actor); return downstreamEffect(stateRef.current, stepId); },
@@ -640,7 +653,7 @@ export default function FutureDoors() {
 
   return <main className="spatial-shell editorial-shell">
     <AnimatePresence>{introVisible ? <OpeningSequence onDone={() => setIntroVisible(false)} /> : null}</AnimatePresence>
-    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → PROOF</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD OPPORTUNITY{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
+    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → PROOF</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD VIA CHATGPT{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
     {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => setModal("goal")} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}

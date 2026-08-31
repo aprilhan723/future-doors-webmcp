@@ -1,6 +1,6 @@
 # Future Doors — WebMCP Submission Source of Truth
 
-Last verified: 2026-08-29 (KST)
+Last verified: 2026-08-31 (KST)
 
 When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) as the source of truth.
 
@@ -42,7 +42,10 @@ When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) 
 - Up to seven opportunities remain saved without overwriting one another.
 - An opportunity with an unanswered fact or an output unrelated to the next step cannot be put on the path.
 - Only the person can move a ready opportunity from the saved list onto the path.
-- The demo shows the complete chain: goal/profile → next door → evidence created → later door → missed-door repair.
+- An official rule mismatch blocks take and pin actions instead of remaining a decorative warning.
+- Source facts, agent inference, planned work, simulated results, and earned proof are never presented as the same state.
+- A separate proof path cannot claim to restore eligibility for a closed program.
+- The demo shows the complete chain: saved post → official rule mismatch → blocked action → agent-staged alternative → human approval → planned proof toward the goal.
 
 ## WebMCP implementation audit
 
@@ -62,12 +65,12 @@ Test both direct and ambiguous prompts, correct ordering, parameters, UI updates
 
 1. “Show me Maya's strongest route and why it ranks first.”
    - Expected: `get_path_snapshot` → `focus_route` → `explain_downstream_effect` as needed.
-2. “What changes if I take the first door?”
-   - Expected: `simulate_take_door`; three useful results appear and the next step becomes ready.
-3. “What happens if I miss the challenge?”
-   - Expected: `simulate_missed_door`; downstream evidence visibly breaks.
-4. “Find another official path that creates the same useful work.”
-   - Expected: research outside the site, then `stage_bridge_from_source` with an HTTPS source and bounded fields.
+2. “What changes if Maya takes Outreachy December 2026?”
+   - Expected: `get_path_snapshot`; `simulate_take_door` is rejected with `DOOR_NOT_ACTIONABLE` because the confirmed university location does not match the cohort rule.
+3. “What should Maya prioritize instead?”
+   - Expected: `get_path_snapshot` → `stage_priority_plan` with an available route; the website waits for human approval.
+4. “Find a separate official path toward the missing public-work proof.”
+   - Expected: research outside the site, then `stage_bridge_from_source` with an HTTPS source, bounded fields, and an explicit agent inference that does not claim restored Outreachy eligibility.
 5. “Approve that replacement for me.”
    - Expected: refusal or explanation that approval is human-only; no WebMCP approval tool exists.
 6. “Compare all options under a no-relocation constraint.”
@@ -83,14 +86,14 @@ Automated coverage lives in `src/lib/webmcp.test.ts`, `src/lib/future-map.test.t
 
 ## Demo sequence (target: 120–150 seconds)
 
-1. **0–12s:** Show a saved opportunity screenshot. “A screenshot is a clue. Future Doors finds the official rule and shows what the door creates next.”
-2. **12–38s:** The agent finds the official page and calls `stage_opportunity_from_source`; show the exact deadline, requirements, and “Does it help the next step?” answer.
-3. **38–56s:** Show that an unresolved opportunity stays saved, then add a ready opportunity with the human-only button.
-4. **56–76s:** Ask the agent to take the approved door; show useful work appear and the next step open.
-5. **76–96s:** Reset and miss the door; show the chain break.
-6. **96–122s:** Agent suggests another source-backed way; show source, outputs, timing, and human-only approval.
-7. **122–140s:** Approve in the UI; show the repaired path and explicit tradeoff.
-8. **140–150s:** Show the thirteen registered WebMCP tools and the three approval guardrails.
+1. **0–12s:** Show the saved Outreachy post. “A screenshot is a clue. Future Doors finds the official rule before it lets the opportunity into the plan.”
+2. **12–34s:** The agent reads the shared profile and official Outreachy rule; the page changes to `NOT THIS COHORT` and the take/pin actions are blocked.
+3. **34–55s:** Ask the agent to take it anyway; show the structured `DOOR_NOT_ACTIONABLE` refusal.
+4. **55–80s:** Ask for the best available route; the agent stages `Build in public` as P1 through `stage_priority_plan`.
+5. **80–98s:** Approve P1 in the human interface; show the proof gap update on the same screen.
+6. **98–125s:** Agent stages a separate source-backed contribution plan. Show Source B fact and the agent inference as different labels.
+7. **125–140s:** Approve it in the UI; Outreachy remains closed and the new outputs remain `PLANNED`, not earned.
+8. **140–150s:** Show the fourteen registered WebMCP tools and the human-only approval guardrails.
 
 The demo should show the product working in the first 10–15 seconds. Do not begin with architecture or a tool-name list.
 

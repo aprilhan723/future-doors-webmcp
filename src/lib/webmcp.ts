@@ -36,7 +36,7 @@ declare global {
 
 export type FutureDoorsActions = {
   getPathSnapshot: () => unknown;
-  stageProfileFacts: (proposal: Partial<Pick<Profile, "name" | "age" | "graduationMonth" | "nationality" | "residence" | "studyStatus" | "fieldOfStudy" | "workAuthorization" | "strengths" | "credentials" | "gap">>) => unknown;
+  stageProfileFacts: (proposal: Partial<Pick<Profile, "name" | "age" | "graduationMonth" | "nationality" | "residence" | "universityLocation" | "studyStatus" | "fieldOfStudy" | "workAuthorization" | "strengths" | "credentials" | "gap">>) => unknown;
   stageOpportunityFromSource: (proposal: {
     title: string;
     sourceLabel: string;
@@ -230,6 +230,7 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
           graduation_month: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$", description: "Graduation month in YYYY-MM format." },
           nationality: { type: "string", minLength: 2, maxLength: 80, description: "Nationality only when explicitly known." },
           residence: { type: "string", minLength: 2, maxLength: 80, description: "Current country of residence." },
+          university_location: { type: "string", minLength: 2, maxLength: 80, description: "Country where the person's university is located, only when explicitly confirmed." },
           study_status: { type: "string", minLength: 2, maxLength: 80, description: "Current education or employment status." },
           field_of_study: { type: "string", minLength: 2, maxLength: 100, description: "Field of study or professional focus." },
           work_authorization: { type: "string", minLength: 2, maxLength: 120, description: "Confirmed work-authorization fact or needs-confirmation note." },
@@ -246,6 +247,7 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
         graduationMonth: optionalString(input, "graduation_month", 7, 7),
         nationality: optionalString(input, "nationality", 2, 80),
         residence: optionalString(input, "residence", 2, 80),
+        universityLocation: optionalString(input, "university_location", 2, 80),
         studyStatus: optionalString(input, "study_status", 2, 80),
         fieldOfStudy: optionalString(input, "field_of_study", 2, 100),
         workAuthorization: optionalString(input, "work_authorization", 2, 120),
@@ -330,7 +332,7 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
     {
       name: "stage_bridge_from_source",
       title: "Find another way",
-      description: "When a step is missed, suggest an alternative from an official HTTPS source that creates the same useful result. It appears on the page, but only the person can approve it.",
+      description: "When a door is missed or its official rule does not match, suggest a separate proof path from an official HTTPS source. State the agent inference explicitly; never claim it restores eligibility. Only the person can approve it.",
       inputSchema: objectSchema(
         {
           title: { type: "string", minLength: 3, maxLength: 90, description: "Short name for the proposed replacement action." },

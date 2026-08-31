@@ -41,33 +41,33 @@
       "prompt": "Show Maya's strongest route and the exact steps on it.",
       "expectedCall": [
         { "functionName": "get_path_snapshot", "arguments": {} },
-        { "functionName": "focus_route", "arguments": { "route_id": "ship" } },
+        { "functionName": "focus_route", "arguments": { "route_id": "community" } },
         { "functionName": "get_path_snapshot", "arguments": {} }
       ]
     },
     {
-      "id": "take-first-door",
-      "prompt": "What changes if Maya takes the first opportunity?",
+      "id": "reject-ineligible-door",
+      "prompt": "Can Maya take the Outreachy December 2026 door?",
       "expectedCall": [
-        { "functionName": "get_path_snapshot", "arguments": {} },
-        { "functionName": "simulate_take_door", "arguments": { "door_id": "ship-challenge" } }
-      ]
+        { "functionName": "get_path_snapshot", "arguments": {} }
+      ],
+      "expectedOutcome": "The agent explains that the confirmed South Korea university location does not match the December cohort rule and does not call simulate_take_door."
     },
     {
-      "id": "miss-and-stage-detour",
-      "prompt": "Show what changes if Maya misses the challenge, then save an official alternative that creates the same public work.",
+      "id": "stage-separate-proof-path",
+      "prompt": "Outreachy stays closed. Stage a separate official path toward Maya's public-work gap without claiming it restores eligibility.",
       "expectedCall": [
-        { "functionName": "simulate_missed_door", "arguments": { "door_id": "ship-challenge" } },
+        { "functionName": "get_path_snapshot", "arguments": {} },
         {
           "functionName": "stage_bridge_from_source",
           "arguments": {
-            "title": "Independent Public Demo Sprint",
-            "source_label": "WebMCP Challenge requirements",
-            "source_url": "https://webmcp.devpost.com/rules",
-            "source_clause": "A working URL, public repository, and demo video are required.",
-            "rationale": "This creates the same useful public work without claiming the missed award.",
-            "outputs": ["Live app", "Public repository", "Demo video"],
-            "eta": "+6 weeks"
+            "title": "Open-source contribution sprint",
+            "source_label": "GitHub Docs contribution guide",
+            "source_url": "https://docs.github.com/en/get-started/exploring-projects-on-github/finding-ways-to-contribute-to-open-source-on-github",
+            "source_clause": "GitHub documents issue labels and contribution guidelines for finding bounded ways to contribute.",
+            "rationale": "A bounded contribution may fill Maya's public-work gap; it does not restore Outreachy eligibility.",
+            "outputs": ["Public contribution", "Review trail"],
+            "eta": "4–8 weeks"
           }
         }
       ]
@@ -82,11 +82,11 @@
     },
     {
       "id": "explain-evidence-effect",
-      "prompt": "Explain how the public work affects the next step.",
+      "prompt": "Explain how the available public contribution route affects the next step.",
       "expectedCall": [
-        { "functionName": "focus_route", "arguments": { "route_id": "ship" } },
+        { "functionName": "focus_route", "arguments": { "route_id": "community" } },
         { "functionName": "get_path_snapshot", "arguments": {} },
-        { "functionName": "explain_downstream_effect", "arguments": { "step_id": "ship-proof" } }
+        { "functionName": "explain_downstream_effect", "arguments": { "step_id": "community-record" } }
       ]
     }
   ],

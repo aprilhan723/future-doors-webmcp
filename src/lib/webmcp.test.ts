@@ -173,13 +173,13 @@ describe("WebMCP journey evals", () => {
     const calls: ExpectedCall[] = [];
     const tools = createFutureDoorsTools(makeActions(calls));
     await byName(tools, "stage_priority_plan").execute({
-      route_ids: ["ship", "community"],
+      route_ids: ["community", "research"],
       rationale: "These routes fill public work and collaboration gaps within the current limits.",
     });
     expect(calls).toEqual([{
       functionName: "stage_priority_plan",
       arguments: {
-        route_ids: ["ship", "community"],
+        route_ids: ["community", "research"],
         rationale: "These routes fill public work and collaboration gaps within the current limits.",
       },
     }]);

@@ -1,6 +1,6 @@
 # Future Doors
 
-Future Doors turns a saved opportunity screenshot into a source-backed path toward a person’s goal.
+Future Doors turns a saved opportunity screenshot into a source-backed decision and a proof path toward a person’s goal.
 
 > Set a goal and year, confirm your profile facts, and see the best next move, what it creates, and what you can try next.
 
@@ -12,7 +12,7 @@ The person can share an Instagram post, LinkedIn post, or poster screenshot in C
 
 Each saved opportunity is shown as **1 detail needed**, **ready to add**, **saved for later**, or **on your path**. A missing fact blocks connection. An opportunity whose outputs do not help the fixed next step remains saved instead of creating a false path. Only the person can put a reviewed opportunity on the path.
 
-If the first door closes, the same shared agent can find another official way to create comparable useful work. Only the person can use that replacement.
+If the official rule does not match, the door is actually blocked: it cannot be taken or pinned. The agent can stage a separate, source-backed proof plan, but it must say what is source fact and what is inference. Only the person can approve that plan, and it never pretends to restore eligibility for the closed program.
 
 ## One-screen story
 
@@ -20,9 +20,9 @@ If the first door closes, the same shared agent can find another official way to
 2. The page shows the exact deadline, the rules that matter, one missing fact, and whether the result helps the next step.
 3. Up to seven opportunities stay saved without overwriting one another.
 4. Confirmed profile facts, a goal, and the work each step produces make the route explainable.
-5. **I take it** shows useful work moving forward and the next step becoming reachable.
-6. **I miss it** shows exactly where the chain breaks.
-7. The agent proposes another official way; only the person can approve it.
+5. A rule mismatch visibly closes the door and prevents a false success simulation.
+6. The agent proposes a different proof path; only the person can approve it.
+7. Planned, simulated, and earned evidence are never treated as the same state.
 
 Simulations never become profile facts. Paths never claim to predict acceptance or hiring.
 
@@ -30,7 +30,7 @@ A required exam or license can appear as an earlier “Do this first” step. A 
 
 ## WebMCP tools
 
-The page progressively registers thirteen tools against the same visible path:
+The page progressively registers fourteen tools against the same visible path:
 
 1. `get_path_snapshot`
 2. `stage_profile_facts`
@@ -41,10 +41,11 @@ The page progressively registers thirteen tools against the same visible path:
 7. `simulate_take_door`
 8. `simulate_missed_door`
 9. `stage_bridge_from_source`
-10. `pin_constraint`
-11. `compare_routes`
-12. `explain_downstream_effect`
-13. `reset_path`
+10. `stage_priority_plan`
+11. `pin_constraint`
+12. `compare_routes`
+13. `explain_downstream_effect`
+14. `reset_path`
 
 An agent can prepare explicit CV facts and a screenshot-derived opportunity for review, but no WebMCP tool can confirm profile facts, approve a new door, or approve another way. Those actions exist only in the human interface.
 
@@ -65,10 +66,11 @@ Open [http://localhost:3000](http://localhost:3000). The human interface works i
 2. Confirm that the website shows the exact deadline, relevant requirements, and whether one detail is still needed.
 3. Confirm that unrelated or unresolved opportunities cannot be added to the path.
 4. Add a ready opportunity in the human interface.
-5. Ask what changes if Maya takes the first door.
-6. Reset, then ask what breaks if Maya misses it.
-7. Ask the agent to prepare another official way that creates comparable work.
-8. Try asking the agent to approve either proposal. It cannot: approval is deliberately human-only.
+5. Confirm that Maya's university location makes the December Outreachy cohort unavailable and that `simulate_take_door` is rejected.
+6. Ask the agent to stage the available open-source route as a priority and review it on the same screen.
+7. Ask the agent to prepare a separate proof plan from an official source.
+8. Approve it in the UI and confirm that Outreachy remains closed while the alternative proof stays `PLANNED`.
+9. Try asking the agent to approve either proposal. It cannot: approval is deliberately human-only.
 
 The full submission checklist, eval prompts, security audit, and demo sequence are in [docs/SUBMISSION_SOURCE_OF_TRUTH.md](docs/SUBMISSION_SOURCE_OF_TRUTH.md). Product clarity was also stress-tested through a [144-journey synthetic user audit](docs/SYNTHETIC_USER_AUDIT.md) and a [1,920-pass synthetic judge audit](docs/JUDGE_PANEL_AUDIT.md). These are structured internal tests, not real-user or real-judge research.
 

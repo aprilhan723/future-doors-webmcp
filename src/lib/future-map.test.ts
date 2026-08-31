@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRoutes,
   cloneInitialState,
   reviewOpportunity,
+  requireActionableDoor,
   requireDoorId,
   requirePathMonth,
   requireRouteId,
@@ -29,6 +31,31 @@ describe("path input validation", () => {
     expect(() => requirePathMonth("2027-13")).toThrow("[INVALID_MONTH_FORMAT]");
     expect(() => requirePathMonth("2026-07")).toThrow("[MONTH_OUT_OF_RANGE]");
     expect(() => requireVisibleStep(state, "missing-step")).toThrow("[UNKNOWN_STEP_ID]");
+  });
+
+  it("lets the official cohort rule block both human and agent take simulations", () => {
+    const state = cloneInitialState();
+    expect(state.profile.universityLocation).toBe("South Korea");
+    const routes = buildRoutes(state);
+    expect(routes.find((route) => route.id === "ship")?.nodes[0].status).toBe("ineligible");
+    expect(routes.find((route) => route.id === "community")!.fit).toBeGreaterThan(routes.find((route) => route.id === "ship")!.fit);
+    expect(() => requireActionableDoor(state, "ship-challenge")).toThrow("[DOOR_NOT_ACTIONABLE]");
+
+    state.opportunities = [{
+      id: "approved-source",
+      state: "connected",
+      title: "Confirmed eligible product program",
+      sourceLabel: "Official program page",
+      sourceUrl: "https://example.com/program",
+      sourceClause: "The confirmed applicant facts match the published requirements.",
+      deadlineMonth: "2027-08",
+      deadlineText: "August 31, 2027",
+      requirements: ["Confirmed student status"],
+      rationale: "The approved program creates public work for the next step.",
+      outputs: ["Live product"],
+      checkedAt: "2026-08-31",
+    }];
+    expect(requireActionableDoor(state, "ship-challenge").status).toBe("available");
   });
 });
 

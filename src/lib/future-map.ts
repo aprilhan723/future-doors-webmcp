@@ -8,6 +8,7 @@ export type NodeStatus =
   | "checking"
   | "future"
   | "locked"
+  | "ineligible"
   | "expired"
   | "blocked"
   | "simulated"
@@ -23,6 +24,7 @@ export type Profile = {
   graduationMonth: string;
   nationality: string;
   residence: string;
+  universityLocation: string;
   studyStatus: string;
   fieldOfStudy: string;
   workAuthorization: string;
@@ -164,6 +166,7 @@ export const statusLabels: Record<NodeStatus, string> = {
   checking: "CHECK FIRST",
   future: "OPENS LATER",
   locked: "NOT OPEN YET",
+  ineligible: "NOT THIS COHORT",
   expired: "MISSED",
   blocked: "NEEDS ANOTHER WAY",
   simulated: "DONE IN TRY-OUT",
@@ -187,6 +190,7 @@ export const initialState: FutureDoorsState = {
     graduationMonth: "2027-06",
     nationality: "South Korea",
     residence: "South Korea",
+    universityLocation: "South Korea",
     studyStatus: "Undergraduate",
     fieldOfStudy: "Information Systems",
     workAuthorization: "Needs confirmation by country",
@@ -210,7 +214,7 @@ export const initialState: FutureDoorsState = {
     eta: "4–8 weeks",
   },
   opportunities: [],
-  priorities: ["ship"],
+  priorities: [],
   priorityProposal: { state: "none", routeIds: [], rationale: "" },
   pinnedConstraints: ["≤ 10 hrs / week", "Low or no cost", "Remote-friendly"],
   activity: [
@@ -292,6 +296,12 @@ export function getConnectedOpportunity(state: FutureDoorsState) {
   return state.opportunities.find((candidate) => candidate.state === "connected");
 }
 
+export function isDefaultOutreachyCohortMismatch(state: FutureDoorsState) {
+  return !getConnectedOpportunity(state)
+    && /undergraduate|student/i.test(state.profile.studyStatus)
+    && state.profile.universityLocation.trim().toLowerCase() === "south korea";
+}
+
 function shipNodes(state: FutureDoorsState): PathNode[] {
   const missed = state.scenario === "miss";
   const rerouted = state.scenario === "rerouted";
@@ -303,7 +313,8 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
   const opportunityTitle = connected?.title ?? "Outreachy · Dec 2026";
   const opportunityOutputs = connected?.outputs ?? ["Public contribution", "Mentor feedback", "Project plan"];
   const challengeExpired = monthNumber(state.selectedMonth) > monthNumber(deadlineMonth) && !taken;
-  const hasProof = taken || rerouted;
+  const defaultCohortMismatch = isDefaultOutreachyCohortMismatch(state);
+  const hasSimulatedResult = taken && !defaultCohortMismatch;
 
   return [
     {
@@ -314,9 +325,11 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       eyebrow: "DOOR 01 · COMPETE",
       title: opportunityTitle,
       date: imported ? `Closes · ${formatMonth(deadlineMonth)}` : "Sep 1 · 1 AM KST",
-      status: taken ? "simulated" : challengeMissed || challengeExpired ? "expired" : imported ? "available" : "checking",
-      description: taken
-        ? "Simulated completion only. No real application fact was added to your profile."
+      status: defaultCohortMismatch ? "ineligible" : taken ? "simulated" : challengeMissed || challengeExpired ? "expired" : imported ? "available" : "checking",
+      description: defaultCohortMismatch
+        ? "The official rule does not match this confirmed profile: Maya is an undergraduate at a university in South Korea, so the December cohort is not available to her."
+        : taken
+          ? "Simulated completion only. No real application fact was added to your profile."
         : challengeMissed || challengeExpired
           ? "The deadline passed, so this route no longer creates the work needed for the next step."
           : imported
@@ -327,11 +340,13 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       sourceClause: imported ? connected?.sourceClause : "Northern Hemisphere university students may only apply to the May–August cohort; the December 2026 initial application closes Aug 31 at 16:00 UTC.",
       evidence: opportunityOutputs,
       edgeToNext: {
-        type: challengeMissed && !rerouted ? "blocked" : "creates",
-        label: challengeMissed && !rerouted
+        type: defaultCohortMismatch || (challengeMissed && !rerouted) ? "blocked" : "creates",
+        label: defaultCohortMismatch
+          ? "RULE DOES NOT MATCH — DO NOT TAKE"
+          : challengeMissed && !rerouted
           ? "NEEDED WORK NOT CREATED"
           : challengeMissed && rerouted
-            ? "REPLACED BY ANOTHER WAY YOU APPROVED"
+            ? "A DIFFERENT PROOF PATH WAS APPROVED"
             : "CREATES 3 USEFUL RESULTS",
       },
     },
@@ -350,7 +365,7 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
           sourceUrl: state.bridge.sourceUrl,
           sourceClause: state.bridge.sourceClause,
           evidence: state.bridge.outputs,
-          edgeToNext: { type: "creates", label: "REPLACES THE MISSING WORK" },
+          edgeToNext: { type: "creates", label: "PLANS A SEPARATE PROOF PATH" },
         }
       : {
           id: "ship-proof",
@@ -360,10 +375,10 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
           eyebrow: missed ? "WHAT IS MISSING" : "WHAT THIS GIVES YOU",
           title: missed ? "The next step has nothing to review" : imported ? `${opportunityTitle} results` : "A product people can try",
           date: missed ? "No replacement yet" : `${opportunityOutputs.length} useful result${opportunityOutputs.length === 1 ? "" : "s"}`,
-          status: missed ? "blocked" : hasProof ? "simulated" : "locked",
+          status: defaultCohortMismatch || missed ? "blocked" : hasSimulatedResult ? "simulated" : "locked",
           description: missed
             ? "Without a live app, public code, and demo story, the next step has nothing concrete to review."
-            : hasProof
+            : hasSimulatedResult
               ? "These are try-out results, not confirmed achievements."
           : "If the initial application is approved, the contribution period can create public work and mentor feedback.",
           evidence: missed ? opportunityOutputs.map((item) => `${item} missing`) : opportunityOutputs,
@@ -378,16 +393,18 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       stage: 3,
       kind: "opportunity",
       eyebrow: "DOOR 02 · SHARE",
-      title: "Outreachy final application",
-      date: rerouted ? "Ready after another route" : "After a recorded contribution",
-      status: missed ? "blocked" : hasProof ? "ready" : "locked",
-      description: missed
-        ? "This path is blocked because there is no recorded contribution for the final application."
-        : "Only applicants who record a contribution can create a final application. Selection is never predicted or guaranteed.",
-      sourceLabel: "Official Outreachy Applicant Guide",
-      sourceUrl: "https://www.outreachy.org/docs/applicant/",
-      sourceClause: "Applicants must record at least one project contribution before they can create a final application.",
-      evidence: ["Recorded contribution", "Project timeline", "Final application"],
+      title: rerouted ? "Open-source proof portfolio" : "Outreachy final application",
+      date: rerouted ? "Planned · add a real PR or review URL" : "After a recorded Outreachy contribution",
+      status: rerouted ? "future" : defaultCohortMismatch || missed ? "blocked" : hasSimulatedResult ? "ready" : "locked",
+      description: rerouted
+        ? "This is a separate path toward the career goal. It does not reopen the closed Outreachy cohort, and it is not earned until a real artifact is attached."
+        : defaultCohortMismatch || missed
+          ? "The Outreachy final application stays closed because the official cohort rule or required Outreachy contribution is not satisfied."
+          : "Only applicants who record an Outreachy project contribution can create a final application. Selection is never predicted or guaranteed.",
+      sourceLabel: rerouted ? state.bridge.sourceLabel : "Official Outreachy Applicant Guide",
+      sourceUrl: rerouted ? state.bridge.sourceUrl : "https://www.outreachy.org/docs/applicant/",
+      sourceClause: rerouted ? "Agent inference: a bounded public contribution can support the career proof gap. The source does not claim it restores Outreachy eligibility." : "Applicants must record at least one Outreachy project contribution before they can create a final application.",
+      evidence: rerouted ? ["Public contribution planned", "Review trail planned", "Artifact URL still missing"] : ["Recorded Outreachy contribution", "Project timeline", "Final application"],
       edgeToNext: { type: "signal", label: "STRENGTHENS — NEVER GUARANTEES" },
     },
     {
@@ -398,8 +415,8 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       eyebrow: `TARGET · ${state.profile.targetYear}`,
       title: state.profile.goal,
       date: rerouted ? `Target ${state.profile.targetYear} · ${state.bridge.eta}` : `Target · ${state.profile.targetYear}`,
-      status: missed ? "blocked" : hasProof ? "strengthened" : "destination",
-      description: missed
+      status: (defaultCohortMismatch && !rerouted) || missed ? "blocked" : hasSimulatedResult ? "strengthened" : "destination",
+      description: (defaultCohortMismatch && !rerouted) || missed
         ? "The destination remains possible, but one step in this route is missing."
         : "A direction, not a hiring prediction. The route shows which work can help the next move.",
       evidence: ["Public work", "Mentor feedback", "Open-source collaboration"],
@@ -536,7 +553,7 @@ export function buildRoutes(state: FutureDoorsState): Route[] {
   const productGoal = /product|builder|founder|startup|designer|engineer/.test(goalText);
   const publicGap = /public|portfolio|proof|visibility/.test(state.profile.gap.toLowerCase());
   const fits = {
-    ship: Math.min(98, 80 + (productGoal ? 12 : 0) + (publicGap ? 5 : 0) + (/prototyp|ship/.test(strengthText) ? 2 : 0)),
+    ship: isDefaultOutreachyCohortMismatch(state) ? 0 : Math.min(98, 80 + (productGoal ? 12 : 0) + (publicGap ? 5 : 0) + (/prototyp|ship/.test(strengthText) ? 2 : 0)),
     community: Math.min(98, 78 + (communityGoal ? 15 : 0) + (publicGap ? 3 : 0) + (/story|community|teach/.test(strengthText) ? 2 : 0)),
     research: Math.min(98, 78 + (researchGoal ? 18 : 0) + (/research|analysis|data/.test(strengthText) ? 2 : 0)),
   };
@@ -595,9 +612,18 @@ export function requireVisibleStep(state: FutureDoorsState, stepId: unknown) {
   return step;
 }
 
+export function requireActionableDoor(state: FutureDoorsState, doorId: unknown) {
+  const id = requireDoorId(doorId);
+  const door = buildRoutes(state).flatMap((route) => route.nodes).find((node) => node.id === id);
+  if (!door || (door.status !== "available" && door.status !== "ready")) {
+    throw new PathInputError("DOOR_NOT_ACTIONABLE", `${door?.title ?? "This door"} is ${door ? statusLabels[door.status] : "unavailable"}. Confirm the rule or plan another route instead.`);
+  }
+  return door;
+}
+
 export function downstreamEffect(state: FutureDoorsState, nodeId: string) {
   const node = requireVisibleStep(state, nodeId);
-  if (node.status === "blocked" || node.status === "expired") {
+  if (node.status === "blocked" || node.status === "expired" || node.status === "ineligible") {
     return `${node.title} cannot create the work the next step needs. Later steps are marked as needing another way—not impossible.`;
   }
   if (node.kind === "evidence" || node.kind === "bridge") {
@@ -622,6 +648,7 @@ export function summarizeState(state: FutureDoorsState) {
       grad: state.profile.graduationMonth,
       citizenship: state.profile.nationality,
       based: state.profile.residence,
+      university: state.profile.universityLocation,
       status: state.profile.studyStatus,
       field: state.profile.fieldOfStudy,
       workAuth: state.profile.workAuthorization,
@@ -660,10 +687,9 @@ export function summarizeState(state: FutureDoorsState) {
       firstDoor: route.nodes[0].title,
     })),
     guardrails: [
-      "Simulations never confirm facts.",
-      "saved_items_need_human_approval",
-      "missing_or_unrelated_items_stay_saved",
-      "try_outs_never_confirm_facts",
+      "human_approval_required_for_writes",
+      "unknown_or_ineligible_doors_are_not_actionable",
+      "planned_or_simulated_never_means_earned",
     ],
   };
 }
