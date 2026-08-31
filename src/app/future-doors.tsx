@@ -303,14 +303,81 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
   </section>;
 }
 
-function StageVisual({ node }: { node: PathNode }) {
+function JourneyObject({ node }: { node: PathNode }) {
   const evidence = node.kind === "evidence" || node.kind === "bridge";
   const goal = node.kind === "destination";
-  return <motion.div className={`stage-visual ${node.kind} ${node.status}`} key={node.id} initial={{ opacity: 0, scale: .82, rotateY: -12 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} exit={{ opacity: 0, scale: 1.08, rotateY: 10 }} transition={{ type: "spring", stiffness: 180, damping: 22 }}>
-    <div className="time-orbit" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ transform: `rotate(${index * 30}deg)` }} />)}<b /></div>
-    {evidence ? <span className="stage-proof" aria-hidden="true"><i /><i /><b>✓</b></span> : goal ? <span className="stage-target" aria-hidden="true"><i /><b /></span> : <PremiumPortal status={node.status} />}
-    <span className="stage-floor-shadow" />
-  </motion.div>;
+  return <motion.span className={`journey-object ${node.kind} ${node.status}`} initial={{ opacity: 0, y: 12, scale: .92 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 210, damping: 24 }}>
+    {evidence ? <span className="journey-proof" aria-hidden="true"><i /><i /><b>✓</b></span> : goal ? <span className="journey-target" aria-hidden="true"><i /><b /></span> : <PremiumPortal status={node.status} />}
+  </motion.span>;
+}
+
+const journeyLinks = ["CREATES", "OPENS", "BUILDS TOWARD"] as const;
+
+const scrapbookDetails: Record<RouteId, { apply: string; activity: string; load: string; signal: string }> = {
+  ship: { apply: "By Sep 4", activity: "4-day sprint", load: "HIGH", signal: "Shipped product" },
+  community: { apply: "Any time", activity: "4–8 weeks", load: "MED", signal: "Public collaboration" },
+  research: { apply: "Next cycle", activity: "12+ weeks", load: "MED", signal: "Mentor feedback" },
+};
+
+function GoalScrapbook({ state, routes, priorities, onToggle, onRoute }: { state: FutureDoorsState; routes: Route[]; priorities: RouteId[]; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void }) {
+  const planned = new Set(priorities.map((id) => scrapbookDetails[id].signal));
+  return <section className="goal-scrapbook" aria-label="Opportunity scrapbook and goal gaps">
+    <header>
+      <span><small>OPPORTUNITY SCRAPBOOK</small><strong>Pin the opportunities you can actually do.</strong></span>
+      <b>{priorities.length}/3 PINNED</b>
+    </header>
+    <div className="scrapbook-flow">
+      <div className="scrapbook-end start"><small>START</small><strong>{state.profile.name.split(" ")[0]}</strong><span>Now · {state.profile.studyStatus}</span></div>
+      <div className="scrapbook-cards">
+        {routes.map((item, index) => {
+          const node = item.nodes[0];
+          const detail = scrapbookDetails[item.id];
+          const pinned = priorities.includes(item.id);
+          return <motion.button key={item.id} className={`${pinned ? "pinned" : ""} ${item.id === state.selectedRouteId ? "current" : ""}`} onClick={() => { onToggle(item.id); onRoute(item.id); }} aria-pressed={pinned} whileTap={{ scale: .98 }}>
+            <i>0{index + 1}</i><em>{pinned ? "★ PINNED" : "+ PIN"}</em>
+            <strong>{displayNodeTitle(node)}</strong>
+            <span><small>APPLY {detail.apply}</small><small>DO {detail.activity}</small><small>LOAD {detail.load}</small></span>
+          </motion.button>;
+        })}
+      </div>
+      <div className="scrapbook-end goal"><small>GOAL · {state.profile.targetYear}</small><strong>{state.profile.goal}</strong><span>{planned.size}/3 useful signals planned</span></div>
+    </div>
+    <div className="signal-rail">
+      {Object.values(scrapbookDetails).map((item) => <span className={planned.has(item.signal) ? "planned" : "missing"} key={item.signal}>{planned.has(item.signal) ? "✓" : "+"} {planned.has(item.signal) ? item.signal : `MISSING · ${item.signal}`}</span>)}
+      <em>Stronger preparation, never a predicted outcome.</em>
+    </div>
+  </section>;
+}
+
+function RouteJourney({ state, route, selectedNode, onNode, onTools }: { state: FutureDoorsState; route: Route; selectedNode: PathNode; onNode: (node: PathNode) => void; onTools: () => void }) {
+  const sourceBacked = Boolean(selectedNode.sourceUrl && selectedNode.sourceClause);
+  return <section className={`journey-board scenario-${state.scenario}`} aria-label="The complete route from this opportunity to your goal">
+    <header className="journey-guide">
+      <span><small>THE WHOLE PATH</small><strong>Take one door → create proof → open the next.</strong></span>
+      <em>SELECT A STEP TO CHECK IT</em>
+    </header>
+    <div className="journey-map">
+      {route.nodes.map((node, index) => {
+        const selected = node.id === selectedNode.id;
+        const evidence = node.kind === "evidence" || node.kind === "bridge";
+        const meta = evidence ? node.evidence.slice(0, 3).join(" · ") : node.date;
+        const broken = state.scenario === "miss" && route.id === "ship" && index === 0;
+        return <div className="journey-segment" key={node.id}>
+          <motion.button className={`journey-stop ${node.kind} ${node.status} ${selected ? "selected" : ""}`} onClick={() => onNode(node)} whileTap={{ scale: .985 }} aria-pressed={selected}>
+            <span className="journey-status"><i>0{index + 1}</i>{cardStatus(node)}</span>
+            <JourneyObject node={node} />
+            <span className="journey-copy"><strong>{displayNodeTitle(node)}</strong><small>{meta}</small></span>
+          </motion.button>
+          {index < route.nodes.length - 1 ? <div className={`journey-connector ${broken ? "broken" : ""}`} aria-label={journeyLinks[index]}><span>{broken ? "BREAKS" : journeyLinks[index]}</span><i><b /></i></div> : null}
+        </div>;
+      })}
+    </div>
+    <footer className={`journey-source ${sourceBacked ? "checked" : "planned"}`}>
+      <span>{sourceBacked ? "✓ OFFICIAL RULE CHECKED" : "PATH LOGIC"}</span>
+      <p>{selectedNode.sourceClause ?? selectedNode.edgeToNext?.label ?? selectedNode.description}</p>
+      {selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OPEN SOURCE ↗</a> : <button onClick={onTools}>HOW IT WAS CHECKED ↗</button>}
+    </footer>
+  </section>;
 }
 
 function EditorialProfile({ state, cvName, onUpload, onReview, onGoal }: { state: FutureDoorsState; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void }) {
@@ -326,10 +393,6 @@ function EditorialProfile({ state, cvName, onUpload, onReview, onGoal }: { state
   </aside>;
 }
 
-function EditorialRoutes({ routes, selected, onSelect }: { routes: Route[]; selected: RouteId; onSelect: (id: RouteId) => void }) {
-  return <nav className="editorial-routes" aria-label="Possible routes">{routes.map((item, index) => <button className={item.id === selected ? "active" : ""} key={item.id} onClick={() => onSelect(item.id)}><span>0{index + 1}</span><strong>{routeNames[item.id].label}</strong></button>)}</nav>;
-}
-
 function EditorialDecision({ state, route, onTake, onMiss, onRepair, onReset }: { state: FutureDoorsState; route: Route; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void }) {
   if (route.id !== "ship") return <div className="editorial-decision"><span><small>ANOTHER ROUTE</small><strong>{route.summary}</strong></span><button onClick={onReset}>BACK TO BEST ROUTE</button></div>;
   if (state.scenario === "miss") return <div className="editorial-decision danger"><span><small>THE PATH STOPS HERE</small><strong>The next step has no proof to use.</strong></span><button className="accent" onClick={onRepair}>FIND A DETOUR →</button><button onClick={onReset}>RESET</button></div>;
@@ -341,8 +404,9 @@ function EditorialDecision({ state, route, onTake, onMiss, onRepair, onReset }: 
 function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUpload, onReview, onGoal, onRoute, onNode, onTake, onMiss, onRepair, onReset, onWhy, onTools, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onRoute: (id: RouteId) => void; onNode: (node: PathNode) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
   const sourceBacked = Boolean(selectedNode.sourceUrl && selectedNode.sourceClause);
   const proposedSource = selectedNode.kind === "bridge";
-  const selectedIndex = Math.max(0, route.nodes.findIndex((node) => node.id === selectedNode.id));
+  const [priorities, setPriorities] = useState<RouteId[]>(["ship"]);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const togglePriority = (id: RouteId) => setPriorities((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length < 3 ? [...current, id] : current);
   return <section className="editorial-workspace">
     <header className="editorial-hero">
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .08, duration: .58 }}><small>FROM A SAVED POST TO A REAL NEXT MOVE</small><h1>Don&apos;t just save it. <em>See where it leads.</em></h1></motion.div>
@@ -352,29 +416,17 @@ function EditorialWorkspace({ state, route, routes, selectedNode, cvName, onUplo
       <EditorialProfile state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} />
       <section className="door-theater" aria-label="Your verified opportunity path">
         <header>
-          <div><small>YOUR VERIFIED PATH</small><h2>Pick a step. Then try taking or missing it.</h2></div>
+          <div><small>YOUR WHOLE PATH</small><h2>One door creates what the next door needs.</h2></div>
           <input ref={uploadRef} hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); }} />
           <nav className="theater-actions" aria-label="Path inputs">
-            <button onClick={onReview}>PROFILE · {state.profile.name.split(" ")[0]}</button>
-            <button onClick={onGoal}>GOAL · {state.profile.targetYear}</button>
+            <button onClick={onReview}>YOU · {state.profile.name.split(" ")[0]} · {state.profile.age} · {state.profile.residence}</button>
+            <button onClick={onGoal}>GOAL · {state.profile.goal} · {state.profile.targetYear}</button>
             <button onClick={() => uploadRef.current?.click()}>CV · {cvName.startsWith("Sample") ? "TRY" : "READY"}</button>
             <button onClick={onWhy}>WHY THIS ROUTE ↗</button>
           </nav>
         </header>
-        <EditorialRoutes routes={routes} selected={route.id} onSelect={onRoute} />
-        <div className={`theater-scene scenario-${state.scenario}`}>
-          <div className="theater-grid" aria-hidden="true" />
-          <motion.div className="stage-copy" key={`${selectedNode.id}-copy`} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }}>
-            <small>{selectedNode.eyebrow}</small><h3>{displayNodeTitle(selectedNode)}</h3><p>{selectedNode.date}</p>
-          </motion.div>
-          <AnimatePresence mode="wait"><StageVisual node={selectedNode} /></AnimatePresence>
-          <motion.div className="stage-outcome" key={`${selectedNode.id}-outcome`} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}>
-            <small>{selectedNode.kind === "destination" ? "WHERE THIS BUILDS" : "WHAT CHANGES NEXT"}</small><p>{selectedNode.edgeToNext?.label ?? selectedNode.description}</p>
-            <div>{selectedNode.evidence.slice(0, 2).map((item) => <span key={item}>✓ {item}</span>)}</div>
-            {selectedNode.sourceUrl ? <a href={selectedNode.sourceUrl} target="_blank" rel="noreferrer">OFFICIAL SOURCE ↗</a> : <button onClick={onTools}>SEE HOW THE AGENT CHECKS ↗</button>}
-          </motion.div>
-        </div>
-        <nav className="chapter-track" aria-label="Steps in this route">{route.nodes.map((node, index) => <button key={node.id} className={`${node.id === selectedNode.id ? "active" : ""} ${index < selectedIndex ? "passed" : ""}`} onClick={() => onNode(node)}><i>{index < selectedIndex ? "✓" : index + 1}</i><span><small>{cardStatus(node)}</small><strong>{displayNodeTitle(node)}</strong></span></button>)}</nav>
+        <GoalScrapbook state={state} routes={routes} priorities={priorities} onToggle={togglePriority} onRoute={onRoute} />
+        <RouteJourney state={state} route={route} selectedNode={selectedNode} onNode={onNode} onTools={onTools} />
         <EditorialDecision state={state} route={route} onTake={onTake} onMiss={onMiss} onRepair={onRepair} onReset={onReset} />
       </section>
       <aside className="editorial-inspector">
