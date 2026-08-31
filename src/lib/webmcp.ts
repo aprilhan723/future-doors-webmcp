@@ -5,11 +5,14 @@ import {
   DOOR_IDS,
   PATH_END,
   PATH_START,
+  PROOF_IDS,
   ROUTE_IDS,
   requireDoorId,
   requirePathMonth,
+  requireProofId,
   requireRouteId,
   type Profile,
+  type ProofId,
   type RouteId,
 } from "./future-map";
 
@@ -65,6 +68,7 @@ export type FutureDoorsActions = {
     eta: string;
   }) => unknown;
   stagePriorityPlan: (proposal: { routeIds: RouteId[]; rationale: string }) => unknown;
+  stageProofReceipt: (proposal: { proofId: ProofId; title: string; artifactUrl: string; sourceLabel: string; verificationNote: string }) => unknown;
   pinConstraint: (constraint: string, actor?: "you" | "agent") => unknown;
   compareRoutes: () => unknown;
   explainDownstreamEffect: (stepId: string, actor?: "you" | "agent") => unknown;
@@ -104,6 +108,12 @@ const doorSchema = {
   type: "string",
   enum: [...DOOR_IDS],
   description: "Exact opportunity door id returned by get_path_snapshot.",
+};
+
+const proofSchema = {
+  type: "string",
+  enum: [...PROOF_IDS],
+  description: "Exact proof id returned by get_path_snapshot.",
 };
 
 function requireString(input: Record<string, unknown>, key: string, min: number, max: number) {
@@ -203,6 +213,7 @@ export const siteToolNames = [
   "simulate_missed_door",
   "stage_bridge_from_source",
   "stage_priority_plan",
+  "stage_proof_receipt",
   "pin_constraint",
   "compare_routes",
   "explain_downstream_effect",
@@ -214,7 +225,7 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
     {
       name: "get_path_snapshot",
       title: "Inspect the current path",
-      description: "Read the selected opportunity route in detail plus concise summaries of the other routes, current timing, scenario, and safety guardrails. Call this before using a route, step, or door id.",
+      description: "Read the selected route, proof-slot states, alternative route ids, timing, scenario, and guardrails. Call this before using any route, step, door, or proof id.",
       inputSchema: objectSchema({}),
       annotations: { readOnlyHint: true },
       execute: () => asToolResult(actions.getPathSnapshot()),
@@ -368,6 +379,26 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
       execute: (input) => asToolResult(actions.stagePriorityPlan({
         routeIds: requireRouteArray(input, "route_ids"),
         rationale: requireString(input, "rationale", 12, 240),
+      })),
+    },
+    {
+      name: "stage_proof_receipt",
+      title: "Stage real work as proof",
+      description: "Stage a direct HTTPS work link for one proof slot that is already planned. The person may attach it for later review; attachment does not independently verify ownership or quality.",
+      inputSchema: objectSchema({
+        proof_id: proofSchema,
+        title: { type: "string", minLength: 3, maxLength: 100, description: "Human-readable artifact title." },
+        artifact_url: { type: "string", pattern: "^https://", description: "Direct HTTPS URL to the real PR, issue, review, demo, or portfolio artifact." },
+        source_label: { type: "string", minLength: 3, maxLength: 120, description: "Short source label such as GitHub pull request." },
+        verification_note: { type: "string", minLength: 12, maxLength: 240, description: "What the artifact directly proves; do not infer acceptance or skill level." },
+      }, ["proof_id", "title", "artifact_url", "source_label", "verification_note"]),
+      annotations: { untrustedContentHint: true },
+      execute: (input) => asToolResult(actions.stageProofReceipt({
+        proofId: requireProofId(input.proof_id),
+        title: requireString(input, "title", 3, 100),
+        artifactUrl: requireHttpsUrl(input, "artifact_url"),
+        sourceLabel: requireString(input, "source_label", 3, 120),
+        verificationNote: requireString(input, "verification_note", 12, 240),
       })),
     },
     {

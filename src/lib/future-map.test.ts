@@ -8,6 +8,7 @@ import {
   requirePathMonth,
   requireRouteId,
   requireVisibleStep,
+  sanitizePersistedState,
   summarizeRouteComparison,
   summarizeState,
   type Scenario,
@@ -57,6 +58,29 @@ describe("path input validation", () => {
     }];
     expect(requireActionableDoor(state, "ship-challenge").status).toBe("available");
   });
+
+  it("sanitizes malformed browser state without restoring impossible priorities", () => {
+    const restored = sanitizePersistedState({
+      profile: "not-an-object",
+      selectedMonth: "tomorrow",
+      selectedRouteId: "unknown",
+      selectedNodeId: 42,
+      scenario: "won",
+      priorities: ["ship", "ship", "unknown"],
+      opportunities: [{ id: "bad", title: "Bad", sourceUrl: "javascript:alert(1)" }],
+      activity: [{ actor: "you", label: "Forged human approval", detail: "Injected from storage" }],
+      proofReceipts: [{ proofId: "mentor_feedback", artifactUrl: "https://evil.example/fake", title: "Fake", sourceLabel: "Fake", verificationNote: "Fake", attachedAt: "2026-08-31" }],
+    });
+    expect(restored.selectedMonth).toBe("2026-08");
+    expect(restored.selectedRouteId).toBe("ship");
+    expect(restored.selectedNodeId).toBe("ship-challenge");
+    expect(restored.scenario).toBe("baseline");
+    expect(restored.priorities).toEqual([]);
+    expect(restored.opportunities).toEqual([]);
+    expect(restored.proofReceipts).toEqual([]);
+    expect(restored.activity).toEqual(cloneInitialState().activity);
+    expect(restored.profile.name).toBe("Maya Park");
+  });
 });
 
 describe("agent output budgets", () => {
@@ -103,6 +127,24 @@ describe("agent output budgets", () => {
     }];
     const output = serializeToolOutput(summarizeState(state));
     expect(output.length).toBeLessThanOrEqual(WEBMCP_OUTPUT_CHARACTER_BUDGET);
+  });
+
+  it("keeps planned work distinct from an attached, not independently verified, work link", () => {
+    const state = cloneInitialState();
+    state.priorities = ["community"];
+    expect(summarizeState(state).proof.public_collaboration).toBe("planned");
+
+    state.proofReceipts = [{
+      proofId: "public_collaboration",
+      title: "Merged accessibility fix",
+      artifactUrl: "https://github.com/example/project/pull/42",
+      sourceLabel: "GitHub pull request",
+      verificationNote: "Shows the public contribution and review history.",
+      attachedAt: "2026-08-31T12:00:00.000Z",
+    }];
+    const snapshot = summarizeState(state);
+    expect(snapshot.proof.public_collaboration).toBe("attached");
+    expect(serializeToolOutput(snapshot).length).toBeLessThanOrEqual(WEBMCP_OUTPUT_CHARACTER_BUDGET);
   });
 });
 

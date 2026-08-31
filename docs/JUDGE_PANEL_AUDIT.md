@@ -19,7 +19,7 @@ Every profile checked the four official criteria: WebMCP Leverage, Execution, Po
 1. The first screen could be mistaken for a static career map.
 2. The core transformation—saved post to official source to approved path—was explained in text but not shown.
 3. Small labels and dense cards competed for attention.
-4. A wall of thirteen tool names made the product feel like a technical demo.
+4. A wall of tool names made the product feel like a technical demo.
 5. The screenshot workflow was hidden behind a button instead of teaching the product immediately.
 6. Terms such as artifact, receipt, detour, and compatibility slowed first-time understanding.
 7. Decorative motion did not always clarify what moved from one step to the next.
@@ -30,7 +30,7 @@ Every profile checked the four official criteria: WebMCP Leverage, Execution, Po
 - Show a permanent three-step visual: saved post → agent checks the official page → person approves.
 - Label the path with four familiar actions: Open now, Make this, Then, Goal.
 - Keep profile facts on the left, the path in the center, and the selected step on the right.
-- Group thirteen WebMCP tools into six human-readable abilities while retaining the complete technical list in the repository.
+- Group fifteen WebMCP tools into six human-readable abilities while retaining the complete technical list in the repository.
 - Make human approval visible beside every proposed change.
 - Increase the type size of decisions and path cards; remove low-value helper copy.
 - Use motion only to show information traveling forward, a door changing state, or the path repairing itself.
@@ -57,7 +57,7 @@ Every profile checked the four official criteria: WebMCP Leverage, Execution, Po
 ### Repository
 
 - Public source, MIT license, clean setup instructions, and auditable start date are present.
-- All thirteen tools have bounded schemas and outputs.
+- All fifteen tools have bounded schemas and outputs.
 - Invalid dates, IDs, sources, and tool order return clear errors.
 - Automated tests cover the main path, broken path, replacement path, saved-opportunity limits, and human-only approvals.
 

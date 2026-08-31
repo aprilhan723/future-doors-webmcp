@@ -22,7 +22,8 @@ If the official rule does not match, the door is actually blocked: it cannot be 
 4. Confirmed profile facts, a goal, and the work each step produces make the route explainable.
 5. A rule mismatch visibly closes the door and prevents a false success simulation.
 6. The agent proposes a different proof path; only the person can approve it.
-7. Planned, simulated, and earned evidence are never treated as the same state.
+7. A direct PR, review, demo, or portfolio URL can move one proof slot from `PLANNED` to `ATTACHED`; the change remains human-approved and visible in the execution receipts.
+8. Planned, simulated, attached, and independently verified evidence are never treated as the same state.
 
 Simulations never become profile facts. Paths never claim to predict acceptance or hiring.
 
@@ -30,7 +31,7 @@ A required exam or license can appear as an earlier “Do this first” step. A 
 
 ## WebMCP tools
 
-The page progressively registers fourteen tools against the same visible path:
+The page progressively registers fifteen tools against the same visible path:
 
 1. `get_path_snapshot`
 2. `stage_profile_facts`
@@ -42,12 +43,13 @@ The page progressively registers fourteen tools against the same visible path:
 8. `simulate_missed_door`
 9. `stage_bridge_from_source`
 10. `stage_priority_plan`
-11. `pin_constraint`
-12. `compare_routes`
-13. `explain_downstream_effect`
-14. `reset_path`
+11. `stage_proof_receipt`
+12. `pin_constraint`
+13. `compare_routes`
+14. `explain_downstream_effect`
+15. `reset_path`
 
-An agent can prepare explicit CV facts and a screenshot-derived opportunity for review, but no WebMCP tool can confirm profile facts, approve a new door, or approve another way. Those actions exist only in the human interface.
+An agent can prepare explicit CV facts, a screenshot-derived opportunity, priority pins, an alternate path, and a work link for review, but no WebMCP tool can confirm those proposals or attach the link. Attachment exists only in the human interface and is never described as independent verification.
 
 ## Run locally
 

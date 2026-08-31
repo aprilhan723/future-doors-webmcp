@@ -1,5 +1,6 @@
 export type Actor = "you" | "agent" | "system";
 export type RouteId = "ship" | "research" | "community";
+export type ProofId = "delivered_project" | "public_collaboration" | "mentor_feedback";
 export type Scenario = "baseline" | "take" | "miss" | "rerouted";
 export type NodeKind = "opportunity" | "evidence" | "bridge" | "destination";
 export type NodeStatus =
@@ -64,6 +65,7 @@ export type Route = {
 
 export type BridgeProposal = {
   state: "none" | "staged" | "approved";
+  stagedBy: Actor;
   title: string;
   rationale: string;
   sourceLabel: string;
@@ -103,6 +105,19 @@ export type Activity = {
   actor: Actor;
   label: string;
   detail: string;
+  toolName?: string;
+  source?: string;
+  stateDiff?: string;
+  timestamp?: string;
+};
+
+export type ProofReceipt = {
+  proofId: ProofId;
+  title: string;
+  artifactUrl: string;
+  sourceLabel: string;
+  verificationNote: string;
+  attachedAt: string;
 };
 
 export type FutureDoorsState = {
@@ -119,6 +134,15 @@ export type FutureDoorsState = {
     routeIds: RouteId[];
     rationale: string;
   };
+  proofReceipts: ProofReceipt[];
+  proofProposal: {
+    state: "none" | "staged";
+    proofId: ProofId | null;
+    title: string;
+    artifactUrl: string;
+    sourceLabel: string;
+    verificationNote: string;
+  };
   pinnedConstraints: string[];
   activity: Activity[];
   replayToken: number;
@@ -127,6 +151,8 @@ export type FutureDoorsState = {
 export const PATH_START = "2026-08";
 export const PATH_END = "2040-12";
 export const ROUTE_IDS = ["ship", "community", "research"] as const;
+export const PROOF_IDS = ["delivered_project", "public_collaboration", "mentor_feedback"] as const;
+export const ROUTE_PROOF: Record<RouteId, ProofId> = { ship: "delivered_project", community: "public_collaboration", research: "mentor_feedback" };
 export const DOOR_IDS = ["ship-challenge"] as const;
 
 export class PathInputError extends Error {
@@ -141,6 +167,13 @@ export function requireRouteId(value: unknown): RouteId {
     throw new PathInputError("INVALID_ROUTE_ID", `Use one of: ${ROUTE_IDS.join(", ")}.`);
   }
   return value as RouteId;
+}
+
+export function requireProofId(value: unknown): ProofId {
+  if (typeof value !== "string" || !PROOF_IDS.includes(value as ProofId)) {
+    throw new PathInputError("INVALID_PROOF_ID", `Use one of: ${PROOF_IDS.join(", ")}.`);
+  }
+  return value as ProofId;
 }
 
 export function requireDoorId(value: unknown) {
@@ -205,6 +238,7 @@ export const initialState: FutureDoorsState = {
   scenario: "baseline",
   bridge: {
     state: "none",
+    stagedBy: "system",
     title: "Open-source contribution sprint",
     rationale: "Make one bounded public contribution now, so the next application has real work and review history to use.",
     sourceLabel: "GitHub Docs · Contributing to open source",
@@ -216,13 +250,15 @@ export const initialState: FutureDoorsState = {
   opportunities: [],
   priorities: [],
   priorityProposal: { state: "none", routeIds: [], rationale: "" },
+  proofReceipts: [],
+  proofProposal: { state: "none", proofId: null, title: "", artifactUrl: "", sourceLabel: "", verificationNote: "" },
   pinnedConstraints: ["≤ 10 hrs / week", "Low or no cost", "Remote-friendly"],
   activity: [
     {
       id: "seed-route",
       actor: "system",
       label: "Three routes compiled",
-      detail: "One source-backed opportunity is ready to compare.",
+      detail: "One official rule is ready to inspect.",
     },
   ],
   replayToken: 0,
@@ -397,7 +433,7 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       date: rerouted ? "Planned · add a real PR or review URL" : "After a recorded Outreachy contribution",
       status: rerouted ? "future" : defaultCohortMismatch || missed ? "blocked" : hasSimulatedResult ? "ready" : "locked",
       description: rerouted
-        ? "This is a separate path toward the career goal. It does not reopen the closed Outreachy cohort, and it is not earned until a real artifact is attached."
+        ? "This is a separate path toward the career goal. It does not reopen the closed Outreachy cohort, and it remains planned until a real artifact is attached."
         : defaultCohortMismatch || missed
           ? "The Outreachy final application stays closed because the official cohort rule or required Outreachy contribution is not satisfied."
           : "Only applicants who record an Outreachy project contribution can create a final application. Selection is never predicted or guaranteed.",
@@ -640,6 +676,8 @@ export function summarizeState(state: FutureDoorsState) {
   const routes = buildRoutes(state);
   const selected = getSelectedNode(state);
   const selectedRoute = routes.find((route) => route.id === state.selectedRouteId) ?? routes[0];
+  const plannedProof = new Set(state.priorities.map((routeId) => ROUTE_PROOF[routeId]));
+  const attachedProof = new Set(state.proofReceipts.map((receipt) => receipt.proofId));
   return {
     product: "Future Doors",
     goal: { role: state.profile.goal, by: state.profile.targetYear },
@@ -669,6 +707,7 @@ export function summarizeState(state: FutureDoorsState) {
         .map((candidate) => ({ id: candidate.id, title: compactText(candidate.title), status: reviewOpportunity(candidate).status })),
     },
     priorities: state.priorities,
+    proof: Object.fromEntries(PROOF_IDS.map((proofId) => [proofId, attachedProof.has(proofId) ? "attached" : state.proofProposal.state === "staged" && state.proofProposal.proofId === proofId ? "review" : plannedProof.has(proofId) ? "planned" : "missing"])),
     ...(state.priorityProposal.state === "staged" ? { priorityProposal: "staged" } : {}),
     route: {
       id: selectedRoute.id,
@@ -681,15 +720,11 @@ export function summarizeState(state: FutureDoorsState) {
         ...((node.kind === "evidence" || node.kind === "bridge") && node.evidence.length ? { evidence: node.evidence.slice(0, 3).map((item) => compactText(item, 36)) } : {}),
       })),
     },
-    alternatives: routes.filter((route) => route.id !== selectedRoute.id).map((route) => ({
-      id: route.id,
-      eta: route.eta,
-      firstDoor: route.nodes[0].title,
-    })),
+    alternatives: routes.filter((route) => route.id !== selectedRoute.id).map((route) => route.id),
     guardrails: [
       "human_approval_required_for_writes",
       "unknown_or_ineligible_doors_are_not_actionable",
-      "planned_or_simulated_never_means_earned",
+      "planned_or_simulated_never_means_attached",
     ],
   };
 }
@@ -714,4 +749,110 @@ export function summarizeRouteComparison(state: FutureDoorsState) {
 
 export function cloneInitialState(): FutureDoorsState {
   return JSON.parse(JSON.stringify(initialState)) as FutureDoorsState;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function safeText(value: unknown, fallback: string, max = 500) {
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, max) : fallback;
+}
+
+function safeTextList(value: unknown, fallback: string[], maxItems: number) {
+  if (!Array.isArray(value)) return fallback;
+  const clean = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim().slice(0, 120)).slice(0, maxItems);
+  return clean.length ? clean : fallback;
+}
+
+export function sanitizePersistedState(value: unknown): FutureDoorsState {
+  const base = cloneInitialState();
+  if (!isRecord(value)) return base;
+
+  const profileRaw = isRecord(value.profile) ? value.profile : {};
+  const bridgeRaw = isRecord(value.bridge) ? value.bridge : {};
+  const profile: Profile = {
+    name: safeText(profileRaw.name, base.profile.name, 80),
+    age: Number.isInteger(profileRaw.age) && Number(profileRaw.age) >= 18 && Number(profileRaw.age) <= 100 ? Number(profileRaw.age) : base.profile.age,
+    goal: safeText(profileRaw.goal, base.profile.goal, 100),
+    targetYear: Number.isInteger(profileRaw.targetYear) && Number(profileRaw.targetYear) >= 2027 && Number(profileRaw.targetYear) <= 2040 ? Number(profileRaw.targetYear) : base.profile.targetYear,
+    graduationMonth: typeof profileRaw.graduationMonth === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(profileRaw.graduationMonth) ? profileRaw.graduationMonth : base.profile.graduationMonth,
+    nationality: safeText(profileRaw.nationality, base.profile.nationality, 80),
+    residence: safeText(profileRaw.residence, base.profile.residence, 80),
+    universityLocation: safeText(profileRaw.universityLocation, base.profile.universityLocation, 80),
+    studyStatus: safeText(profileRaw.studyStatus, base.profile.studyStatus, 80),
+    fieldOfStudy: safeText(profileRaw.fieldOfStudy, base.profile.fieldOfStudy, 100),
+    workAuthorization: safeText(profileRaw.workAuthorization, base.profile.workAuthorization, 120),
+    strengths: safeTextList(profileRaw.strengths, base.profile.strengths, 4),
+    credentials: safeTextList(profileRaw.credentials, base.profile.credentials, 6),
+    gap: safeText(profileRaw.gap, base.profile.gap, 100),
+    constraints: safeTextList(profileRaw.constraints, base.profile.constraints, 6),
+  };
+
+  let selectedMonth = base.selectedMonth;
+  try { selectedMonth = requirePathMonth(value.selectedMonth); } catch { /* Keep the safe baseline month. */ }
+  let selectedRouteId = base.selectedRouteId;
+  try { selectedRouteId = requireRouteId(value.selectedRouteId); } catch { /* Keep the safe baseline route. */ }
+  const scenario: Scenario = "baseline";
+  const priorities = Array.isArray(value.priorities)
+    ? value.priorities.filter((id): id is RouteId => id === "ship" || id === "community" || id === "research").filter((id, index, all) => all.indexOf(id) === index).slice(0, 2)
+    : base.priorities;
+
+  const opportunities = Array.isArray(value.opportunities) ? value.opportunities.flatMap((raw): OpportunityCandidate[] => {
+    if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.title !== "string" || typeof raw.sourceUrl !== "string" || !raw.sourceUrl.startsWith("https://")) return [];
+    let deadlineMonth: string;
+    try { deadlineMonth = requirePathMonth(raw.deadlineMonth); } catch { return []; }
+    return [{
+      id: safeText(raw.id, "", 100),
+      state: "review",
+      title: safeText(raw.title, "Saved opportunity", 100),
+      rationale: safeText(raw.rationale, "Review how this supports the next step.", 300),
+      sourceLabel: safeText(raw.sourceLabel, "Official source", 120),
+      sourceUrl: raw.sourceUrl.slice(0, 500),
+      sourceClause: safeText(raw.sourceClause, "Source clause unavailable; review before use.", 500),
+      deadlineMonth,
+      deadlineText: safeText(raw.deadlineText, formatMonth(deadlineMonth), 100),
+      requirements: safeTextList(raw.requirements, ["Review official requirements"], 4),
+      ...(typeof raw.missingFact === "string" && raw.missingFact.trim() ? { missingFact: raw.missingFact.trim().slice(0, 120) } : {}),
+      ...(typeof raw.prerequisite === "string" && raw.prerequisite.trim() ? { prerequisite: raw.prerequisite.trim().slice(0, 100) } : {}),
+      outputs: safeTextList(raw.outputs, ["Review expected output"], 5),
+      checkedAt: safeText(raw.checkedAt, "Unknown", 20),
+    }];
+  }).slice(0, 7) : [];
+
+  // Browser storage is an untrusted draft. It may restore inputs, but never an
+  // official connection, human approval, execution receipt, or attached proof.
+  const activity = base.activity;
+  const proofReceipts: ProofReceipt[] = [];
+
+  const next: FutureDoorsState = {
+    profile,
+    selectedMonth,
+    selectedRouteId,
+    selectedNodeId: typeof value.selectedNodeId === "string" ? value.selectedNodeId.slice(0, 80) : base.selectedNodeId,
+    scenario,
+    bridge: {
+      state: "none",
+      stagedBy: bridgeRaw.stagedBy === "agent" || bridgeRaw.stagedBy === "you" ? bridgeRaw.stagedBy : "system",
+      title: safeText(bridgeRaw.title, base.bridge.title, 90),
+      rationale: safeText(bridgeRaw.rationale, base.bridge.rationale, 300),
+      sourceLabel: safeText(bridgeRaw.sourceLabel, base.bridge.sourceLabel, 100),
+      sourceUrl: typeof bridgeRaw.sourceUrl === "string" && bridgeRaw.sourceUrl.startsWith("https://") ? bridgeRaw.sourceUrl.slice(0, 500) : base.bridge.sourceUrl,
+      sourceClause: safeText(bridgeRaw.sourceClause, base.bridge.sourceClause, 500),
+      outputs: safeTextList(bridgeRaw.outputs, base.bridge.outputs, 5),
+      eta: safeText(bridgeRaw.eta, base.bridge.eta, 30),
+    },
+    opportunities,
+    priorities,
+    priorityProposal: { state: "none", routeIds: [], rationale: "" },
+    proofReceipts,
+    proofProposal: { state: "none", proofId: null, title: "", artifactUrl: "", sourceLabel: "", verificationNote: "" },
+    pinnedConstraints: safeTextList(value.pinnedConstraints, base.pinnedConstraints, 5),
+    activity,
+    replayToken: Number.isInteger(value.replayToken) && Number(value.replayToken) >= 0 ? Number(value.replayToken) : 0,
+  };
+
+  try { requireVisibleStep(next, next.selectedNodeId); } catch { next.selectedNodeId = getRoute(next, next.selectedRouteId).nodes[0].id; }
+  if (isDefaultOutreachyCohortMismatch(next)) next.priorities = next.priorities.filter((id) => id !== "ship");
+  return next;
 }

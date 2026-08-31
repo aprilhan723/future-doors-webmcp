@@ -25,6 +25,7 @@ function makeActions(calls: ExpectedCall[]): FutureDoorsActions {
       graduation_month: proposal.graduationMonth,
       nationality: proposal.nationality,
       residence: proposal.residence,
+      university_location: proposal.universityLocation,
       study_status: proposal.studyStatus,
       field_of_study: proposal.fieldOfStudy,
       work_authorization: proposal.workAuthorization,
@@ -62,6 +63,13 @@ function makeActions(calls: ExpectedCall[]): FutureDoorsActions {
     stagePriorityPlan: (proposal) => record("stage_priority_plan", {
       route_ids: proposal.routeIds,
       rationale: proposal.rationale,
+    }),
+    stageProofReceipt: (proposal) => record("stage_proof_receipt", {
+      proof_id: proposal.proofId,
+      title: proposal.title,
+      artifact_url: proposal.artifactUrl,
+      source_label: proposal.sourceLabel,
+      verification_note: proposal.verificationNote,
     }),
     pinConstraint: (constraint) => record("pin_constraint", { constraint }),
     compareRoutes: () => record("compare_routes"),
@@ -104,6 +112,7 @@ describe("WebMCP contract", () => {
     expect(byName(tools, "stage_opportunity_from_source").annotations?.untrustedContentHint).toBe(true);
     expect(byName(tools, "stage_bridge_from_source").annotations?.untrustedContentHint).toBe(true);
     expect(byName(tools, "stage_priority_plan").annotations?.untrustedContentHint).toBe(true);
+    expect(byName(tools, "stage_proof_receipt").annotations?.untrustedContentHint).toBe(true);
   });
 
   it("rejects bad route, date, door, and source inputs with actionable codes", () => {
@@ -114,6 +123,7 @@ describe("WebMCP contract", () => {
     expect(() => byName(tools, "move_path_clock").execute({ month: "2026-07" })).toThrow("[MONTH_OUT_OF_RANGE]");
     expect(() => byName(tools, "move_path_clock").execute({ month: "June 2027" })).toThrow("[INVALID_MONTH_FORMAT]");
     expect(() => byName(tools, "simulate_take_door").execute({ door_id: "not-a-door" })).toThrow("[INVALID_DOOR_ID]");
+    expect(() => byName(tools, "stage_proof_receipt").execute({ proof_id: "confidence", title: "Real artifact", artifact_url: "https://example.com/work", source_label: "Portfolio", verification_note: "Shows one public artifact." })).toThrow("[INVALID_PROOF_ID]");
     expect(() => byName(tools, "stage_bridge_from_source").execute({
       title: "Replacement sprint",
       source_label: "Example source",
@@ -184,5 +194,20 @@ describe("WebMCP journey evals", () => {
       },
     }]);
     expect(siteToolNames).not.toContain("approve_priority_plan");
+  });
+
+  it("stages a work link while keeping final attachment human-only", async () => {
+    const calls: ExpectedCall[] = [];
+    const tools = createFutureDoorsTools(makeActions(calls));
+    await byName(tools, "stage_proof_receipt").execute({
+      proof_id: "public_collaboration",
+      title: "Accessibility fix pull request",
+      artifact_url: "https://github.com/example/project/pull/12",
+      source_label: "GitHub pull request",
+      verification_note: "Shows a public contribution and its visible review trail.",
+    });
+    expect(calls.at(-1)?.functionName).toBe("stage_proof_receipt");
+    expect(siteToolNames).not.toContain("approve_proof_receipt");
+    expect(siteToolNames).not.toContain("mark_proof_earned");
   });
 });

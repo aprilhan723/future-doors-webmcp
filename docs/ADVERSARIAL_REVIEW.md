@@ -10,14 +10,14 @@ Future Doors owns a narrower loop:
 
 **screenshot clue → official page → saved opportunity → missing fact or ready → human-added path → useful work → next step → another route if missed**
 
-The distinctive object is a path that updates when plans change, not a recommendation list. It answers: “If this door closes, what does my next step lose, and which verified alternative can recreate it?”
+The distinctive object is a path that updates when plans change, not a recommendation list. It answers: “If this door closes, what does my next step lose, and which source-backed different path can create useful proof?”
 
 ## Five skeptical reviewers
 
 | Reviewer | Test | Result | Remaining risk |
 | --- | --- | --- | --- |
 | Five-second judge | Can the product be described from the first screen? | Pass: “One door should lead to the next.” Door → proof → next door → goal is visible. | The demo narration must name the screenshot intake immediately. |
-| WebMCP judge | Does the agent do non-trivial work on shared state? | Pass: 13 direct site tools; source staging, path simulation, comparison, and visible UI changes. | The video must show real tool calls, not only human clicks. |
+| WebMCP judge | Does the agent do non-trivial work on shared state? | Pass: 15 direct site tools; source staging, path simulation, comparison, proof staging, and visible UI changes. | The video must show real tool calls, not only human clicks. |
 | Opportunity seeker | Is it clear where programs come from? | Pass: Add a door explains screenshot → official source → approval. | A staged screenshot journey should be the first demo, not hidden in the tools list. |
 | Trust reviewer | Can untrusted content silently change the path? | Pass: external text is marked untrusted; official HTTPS source required; profile, new-door, and detour approvals are human-only. | Official-source quality still depends on the browsing agent and human review. |
 | Small-laptop user | Is the map readable without scrolling or overlap? | Pass at 760×620, 1000×620, and 1280×720 CSS pixels; no page overflow, card overflow, overlap, or console issues. | Mobile portrait is not the judging target. |
