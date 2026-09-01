@@ -92,6 +92,8 @@ https://github.com/aprilhan723/future-doors-webmcp
 
 TODO: Add the public YouTube link after recording a 2:30–2:45 video with audio. The video must show an actual human-and-agent sequence, not only the UI.
 
+Use [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md) as the timed recording script. It uses the current live tool contract and marks the one required end-to-end in-app-browser check before recording.
+
 Recommended sequence:
 
 1. A saved post is a clue, not a source.

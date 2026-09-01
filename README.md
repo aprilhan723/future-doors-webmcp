@@ -82,6 +82,8 @@ The full submission checklist, eval prompts, security audit, and demo sequence a
 
 The Devpost-ready product story, exact test path, demo outline, and form-answer draft live in [devpost-submission.md](devpost-submission.md). It is a local draft only; no Devpost project has been submitted from this repository.
 
+The timed, reproducible recording sequence is in [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md). It uses only visible UI states and registered WebMCP operations, and deliberately avoids claims of acceptance or verified work.
+
 ## Interaction design
 
 The one-screen product stage uses adapted MIT-licensed Motion Primitives patterns for the animated route selection, staggered path entrance, pointer-following spotlight, card tilt, and spring modal transitions. The path backdrop is a custom SVG generated with Haikei's Layered Waves generator. The five-color system follows Realtime Colors' text, background, primary, secondary, and accent roles. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.

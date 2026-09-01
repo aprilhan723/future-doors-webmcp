@@ -102,6 +102,8 @@ Automated coverage lives in `src/lib/webmcp.test.ts`, `src/lib/future-map.test.t
 
 The demo should show the product working in the first 10–15 seconds. Do not begin with architecture or a tool-name list.
 
+The timed screen-and-voiceover version is in [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md). It uses the two built-in **HOW IT WORKS** prompts so the recording follows the live tool contract instead of depending on an improvised external lookup.
+
 ## Official resources worth using
 
 - [Challenge overview](https://webmcp.devpost.com/)
