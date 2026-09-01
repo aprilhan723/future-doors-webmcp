@@ -4,6 +4,7 @@ import {
   cloneInitialState,
   getRouteFutureImpact,
   getRouteFit,
+  getOpportunityRouteOptions,
   reviewOpportunity,
   requireActionableDoor,
   requireDoorId,
@@ -57,6 +58,7 @@ describe("path input validation", () => {
     state.opportunities = [{
       id: "approved-source",
       state: "connected",
+      pathRouteId: "ship",
       title: "Confirmed eligible product program",
       sourceLabel: "Official program page",
       sourceUrl: "https://example.com/program",
@@ -183,6 +185,7 @@ describe("agent output budgets", () => {
     state.opportunities = [{
       id: "opportunity-1",
       state: "connected",
+      pathRouteId: "ship",
       title: "A long but valid source-backed opportunity title for a public product-building program",
       sourceLabel: "Official opportunity page",
       sourceUrl: "https://example.com/opportunity",
@@ -240,6 +243,26 @@ describe("saved opportunity review", () => {
   it("allows only an opportunity that creates work useful to the next step", () => {
     expect(reviewOpportunity(base)).toMatchObject({ status: "ready", canConnect: true });
     expect(reviewOpportunity({ ...base, outputs: ["Attendance certificate"] })).toMatchObject({ status: "saved_only", canConnect: false });
+  });
+
+  it("lets the person choose the plan a source-backed result supports", () => {
+    expect(getOpportunityRouteOptions({ ...base, outputs: ["Live product", "Public contribution"] })).toEqual(["ship", "community"]);
+    expect(getOpportunityRouteOptions({ ...base, outputs: ["Mentor feedback", "Research proposal"] })).toEqual(["research"]);
+    expect(getOpportunityRouteOptions({ ...base, state: "connected", pathRouteId: "community" })).toEqual(["community"]);
+  });
+
+  it("keeps a saved source in the route the person chose, without reopening a different route", () => {
+    const state = cloneInitialState();
+    state.opportunities = [{
+      ...base,
+      state: "connected",
+      pathRouteId: "research",
+      title: "Mentored research fellowship",
+      outputs: ["Mentor feedback", "Research proposal"],
+    }];
+
+    expect(buildRoutes(state).find((route) => route.id === "research")?.nodes[0].title).toBe("Mentored research fellowship");
+    expect(buildRoutes(state).find((route) => route.id === "ship")?.nodes[0].status).toBe("ineligible");
   });
 
   it("keeps connected work visible, then sorts the remaining scrapbook by official deadline", () => {

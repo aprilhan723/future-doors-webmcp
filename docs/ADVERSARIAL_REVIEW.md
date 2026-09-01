@@ -8,7 +8,7 @@ Do not become another CV-to-job matcher. A direct WebMCP Career Copilot already 
 
 Future Doors owns a narrower loop:
 
-**screenshot clue → official page → saved opportunity → missing fact or ready → human-added path → useful work → next step → another route if missed**
+**screenshot clue → official page → saved opportunity → missing fact or ready → person chooses a plan → useful work → next verified step → another route if missed**
 
 The distinctive object is a path that updates when plans change, not a recommendation list. It answers: “If this door closes, what does my next step lose, and which source-backed different path can create useful proof?”
 
@@ -24,7 +24,7 @@ The distinctive object is a path that updates when plans change, not a recommend
 
 ## Larger synthetic population
 
-A 144-journey structured stress test found three repeated failures in the earlier build: one screenshot overwrote another, unresolved eligibility had no safe waiting state, and an unrelated opportunity could inherit a fixed next step. The current build addresses all three with a seven-item saved list, one-missing-fact state, and a deterministic check that only concrete public product outputs can enter the current product path. This is synthetic testing, not a claim of real-user demand; details are in `docs/SYNTHETIC_USER_AUDIT.md`.
+A 144-journey structured stress test found three repeated failures in the earlier build: one screenshot overwrote another, unresolved eligibility had no safe waiting state, and an unrelated opportunity could inherit a fixed next step. The current build addresses all three with a seven-item saved list, one-missing-fact state, and a deterministic check that only concrete product, public-collaboration, or mentorship/research outputs can enter the person-chosen plan. This is synthetic testing, not a claim of real-user demand; details are in `docs/SYNTHETIC_USER_AUDIT.md`.
 
 ## Official-criteria preflight
 

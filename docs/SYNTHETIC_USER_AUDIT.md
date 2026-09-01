@@ -11,7 +11,7 @@ A separate 36-person synthetic panel covered students, job seekers, internationa
 The follow-up changed the central board accordingly:
 
 - One opportunity and the work it could add now share a row.
-- A person can choose no more than two opportunities.
+- A person can pin no more than two routes at once.
 - A selected row becomes solid and a missing work type stays dotted, with text labels in addition to color and line style.
 - The target says “needed work types on the board” and “This tracks work, not odds” so the count cannot be mistaken for a success probability.
 - The mobile layout groups each opportunity with its matching work type instead of shrinking the desktop canvas.
@@ -40,9 +40,10 @@ Inputs varied across screenshots, social links, official links, and CV-plus-link
 ## Product decisions
 
 - Keep up to seven saved opportunities instead of overwriting one.
-- A saved opportunity can be `1 detail needed`, `ready to add`, `saved for later`, or `on your path`.
+- A saved opportunity can be `1 detail needed`, `ready to plan`, `saved for later`, or `on your path`.
 - One missing fact blocks path connection.
-- Concrete outputs must include work useful to the next step before the human can add the opportunity to the path.
+- Concrete outputs must include product, public-collaboration, or mentorship/research work before the human can choose the plan it supports.
+- The agent never chooses that plan: the person picks the one supported route, and a saved source cannot silently replace a different route.
 - Show the exact deadline text, relevant official requirements, last checked date, and one missing fact.
 - Show a required exam, certificate, or earlier step as “Do this first.”
 - Keep approval human-only.
@@ -53,7 +54,7 @@ Inputs varied across screenshots, social links, official links, and CV-plus-link
 | --- | --- |
 | Opportunity inbox | Saved opportunities |
 | Eligibility receipt | What we checked |
-| Proof compatibility | Does it help the next step? |
+| Proof compatibility | What could this support? |
 | Missing eligibility variable | One thing we still need |
 | Prerequisite | Do this first |
 | Sourced detour | Another way |

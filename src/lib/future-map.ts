@@ -115,6 +115,9 @@ export type BridgeProposal = {
 export type OpportunityCandidate = {
   id: string;
   state: "review" | "connected";
+  // A person chooses this only when they add the reviewed item to a plan. Agent
+  // output can describe useful results, but never decides which future it serves.
+  pathRouteId?: RouteId;
   title: string;
   rationale: string;
   sourceLabel: string;
@@ -343,6 +346,28 @@ const SHOWABLE_PRODUCT_WORK = [
   /\b(case study|portfolio|demo video|demo narrative|recorded demo)\b/i,
 ];
 
+const SHOWABLE_ROUTE_WORK: Record<RouteId, RegExp[]> = {
+  ship: SHOWABLE_PRODUCT_WORK,
+  community: [
+    /\b(public|open.?source) (contribution|collaboration|community|review|change)\b/i,
+    /\b(merged|pull request|pr|collaboration|contribution|review trail|maintainer feedback)\b/i,
+  ],
+  research: [
+    /\b(mentor|mentorship|advisor|research|proposal|analysis|experiment|study|technical report|lab)\b/i,
+  ],
+};
+
+/**
+ * A saved post can join a plan only when its stated output is concrete enough
+ * to help that plan. This maps evidence types, never odds of admission, hiring,
+ * or success.
+ */
+export function getOpportunityRouteOptions(candidate: OpportunityCandidate): RouteId[] {
+  if (candidate.state === "connected" && candidate.pathRouteId) return [candidate.pathRouteId];
+  const outputText = candidate.outputs.join(" ");
+  return ROUTE_IDS.filter((routeId) => SHOWABLE_ROUTE_WORK[routeId].some((pattern) => pattern.test(outputText)));
+}
+
 export function reviewOpportunity(candidate: OpportunityCandidate): OpportunityReview {
   if (candidate.state === "connected") {
     return {
@@ -362,13 +387,13 @@ export function reviewOpportunity(candidate: OpportunityCandidate): OpportunityR
       pathAnswer: "Not yet — one detail about you is still missing.",
     };
   }
-  if (candidate.outputs.some((item) => SHOWABLE_PRODUCT_WORK.some((pattern) => pattern.test(item)))) {
+  if (getOpportunityRouteOptions(candidate).length) {
     return {
       status: "ready",
-      label: "READY TO ADD",
+      label: "READY TO PLAN",
       canConnect: true,
-      nextAction: "Review and add it to your path",
-      pathAnswer: "Yes — it creates work you can show at the next step.",
+      nextAction: "Choose which plan this can support",
+      pathAnswer: "Choose the future plan you want this source-backed work to support.",
     };
   }
   return {
@@ -393,12 +418,12 @@ export function sortSavedOpportunities(candidates: OpportunityCandidate[]) {
   });
 }
 
-export function getConnectedOpportunity(state: FutureDoorsState) {
-  return state.opportunities.find((candidate) => candidate.state === "connected");
+export function getConnectedOpportunity(state: FutureDoorsState, routeId?: RouteId) {
+  return state.opportunities.find((candidate) => candidate.state === "connected" && (!routeId || candidate.pathRouteId === routeId));
 }
 
 export function isDefaultOutreachyCohortMismatch(state: FutureDoorsState) {
-  return !getConnectedOpportunity(state)
+  return !getConnectedOpportunity(state, "ship")
     && /undergraduate|student/i.test(state.profile.studyStatus)
     && state.profile.universityLocation.trim().toLowerCase() === "south korea";
 }
@@ -408,7 +433,7 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
   const rerouted = state.scenario === "rerouted";
   const taken = state.scenario === "take";
   const challengeMissed = missed || rerouted;
-  const connected = getConnectedOpportunity(state);
+  const connected = getConnectedOpportunity(state, "ship");
   const imported = Boolean(connected);
   const deadlineMonth = connected?.deadlineMonth ?? "2026-08";
   const opportunityTitle = connected?.title ?? "Outreachy · Dec 2026";
@@ -494,18 +519,20 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
       stage: 3,
       kind: "opportunity",
       eyebrow: "DOOR 02 · SHARE",
-      title: rerouted ? "Open-source proof portfolio" : "Outreachy final application",
-      date: rerouted ? "Planned · add a real PR or review URL" : "After a recorded Outreachy contribution",
+      title: rerouted ? "Open-source proof portfolio" : imported ? "Choose the next verified opening" : "Outreachy final application",
+      date: rerouted ? "Planned · add a real PR or review URL" : imported ? "After the work above" : "After a recorded Outreachy contribution",
       status: rerouted ? "future" : defaultCohortMismatch || missed ? "blocked" : hasSimulatedResult ? "ready" : "locked",
       description: rerouted
         ? "This is a separate path toward the career goal. It does not reopen the closed Outreachy cohort, and it remains planned until a real artifact is attached."
+        : imported
+          ? "This source can create the work above. Add another official source before treating a later opportunity as a real next step."
         : defaultCohortMismatch || missed
           ? "The Outreachy final application stays closed because the official cohort rule or required Outreachy contribution is not satisfied."
           : "Only applicants who record an Outreachy project contribution can create a final application. Selection is never predicted or guaranteed.",
-      sourceLabel: rerouted ? state.bridge.sourceLabel : "Official Outreachy Applicant Guide",
-      sourceUrl: rerouted ? state.bridge.sourceUrl : "https://www.outreachy.org/docs/applicant/",
-      sourceClause: rerouted ? "Agent inference: a bounded public contribution can support the career proof gap. The source does not claim it restores Outreachy eligibility." : "Applicants must record at least one Outreachy project contribution before they can create a final application.",
-      evidence: rerouted ? ["Public contribution planned", "Review trail planned", "Artifact URL still missing"] : ["Recorded Outreachy contribution", "Project timeline", "Final application"],
+      sourceLabel: rerouted ? state.bridge.sourceLabel : imported ? undefined : "Official Outreachy Applicant Guide",
+      sourceUrl: rerouted ? state.bridge.sourceUrl : imported ? undefined : "https://www.outreachy.org/docs/applicant/",
+      sourceClause: rerouted ? "Agent inference: a bounded public contribution can support the career proof gap. The source does not claim it restores Outreachy eligibility." : imported ? undefined : "Applicants must record at least one Outreachy project contribution before they can create a final application.",
+      evidence: rerouted ? ["Public contribution planned", "Review trail planned", "Artifact URL still missing"] : imported ? ["Find a separate official opening", "Use the work above", "Do not assume a guarantee"] : ["Recorded Outreachy contribution", "Project timeline", "Final application"],
       edgeToNext: { type: "signal", label: "STRENGTHENS — NEVER GUARANTEES" },
     },
     {
@@ -526,6 +553,10 @@ function shipNodes(state: FutureDoorsState): PathNode[] {
 }
 
 function researchNodes(state: FutureDoorsState): PathNode[] {
+  const connected = getConnectedOpportunity(state, "research");
+  const imported = Boolean(connected);
+  const expired = imported && monthNumber(state.selectedMonth) > monthNumber(connected!.deadlineMonth);
+  const outputs = connected?.outputs ?? ["Starter contribution", "Mentor context", "Proposal draft"];
   return [
     {
       id: "research-prepare",
@@ -533,43 +564,43 @@ function researchNodes(state: FutureDoorsState): PathNode[] {
       stage: 1,
       kind: "opportunity",
       eyebrow: "DOOR 01 · PREPARE",
-      title: "Prepare with a GSoC organization",
-      date: "Next cycle · confirm dates",
-      status: "checking",
-      description: "A global, online mentored open-source route. Confirm eligibility before planning around it.",
-      sourceLabel: "Official Google Summer of Code FAQ",
-      sourceUrl: "https://developers.google.com/open-source/gsoc/faq",
-      sourceClause: "GSoC is online and global. Applicants must meet age, work-eligibility, newcomer, prior-participation, and location rules.",
-      evidence: ["Starter contribution", "Mentor context", "Proposal draft"],
-      edgeToNext: { type: "creates", label: "MAKES A REAL APPLICATION POSSIBLE" },
+      title: connected?.title ?? "Prepare with a GSoC organization",
+      date: imported ? `Closes · ${formatMonth(connected!.deadlineMonth)}` : "Next cycle · confirm dates",
+      status: imported ? expired ? "expired" : "available" : "checking",
+      description: connected?.rationale ?? "A global, online mentored open-source route. Confirm eligibility before planning around it.",
+      sourceLabel: connected?.sourceLabel ?? "Official Google Summer of Code FAQ",
+      sourceUrl: connected?.sourceUrl ?? "https://developers.google.com/open-source/gsoc/faq",
+      sourceClause: connected?.sourceClause ?? "GSoC is online and global. Applicants must meet age, work-eligibility, newcomer, prior-participation, and location rules.",
+      evidence: outputs,
+      edgeToNext: { type: expired ? "blocked" : "creates", label: expired ? "WINDOW CLOSED — KEEP THE WORK IDEA" : "CREATES MENTORSHIP-READY WORK" },
     },
     {
       id: "research-proposal",
       routeId: "research",
       stage: 2,
       kind: "evidence",
-      eyebrow: "WHAT YOU BUILD",
-      title: "Contribution + proposal",
-      date: "Public work + a scoped plan",
+      eyebrow: imported ? "WHAT THIS COULD ADD" : "WHAT YOU BUILD",
+      title: imported ? `${connected!.title} results` : "Contribution + proposal",
+      date: imported ? `${outputs.length} useful result${outputs.length === 1 ? "" : "s"}` : "Public work + a scoped plan",
       status: "locked",
-      description: "Early interaction and a concrete plan make the application grounded, not generic.",
-      evidence: ["Starter contribution", "Mentor feedback", "Project proposal"],
-      edgeToNext: { type: "signal", label: "HELPS YOU APPLY — NOT A GUARANTEE" },
+      description: imported ? "These are possible results, not confirmed achievements. They can support a later mentor or research step." : "Early interaction and a concrete plan make the application grounded, not generic.",
+      evidence: imported ? outputs : ["Starter contribution", "Mentor feedback", "Project proposal"],
+      edgeToNext: { type: "signal", label: "HELPS THE NEXT MOVE — NOT A GUARANTEE" },
     },
     {
       id: "research-apply",
       routeId: "research",
       stage: 3,
       kind: "opportunity",
-      eyebrow: "DOOR 02 · APPLY",
-      title: "Apply to Google Summer of Code",
-      date: "When the next window opens",
+      eyebrow: imported ? "DOOR 02 · DECIDE" : "DOOR 02 · APPLY",
+      title: imported ? "Choose the next verified opening" : "Apply to Google Summer of Code",
+      date: imported ? "After the work above" : "When the next window opens",
       status: "locked",
-      description: "A real application step, not an internship or a promise of selection.",
-      sourceLabel: "Official Google Summer of Code FAQ",
-      sourceUrl: "https://developers.google.com/open-source/gsoc/faq",
-      sourceClause: "Google recommends contacting the mentoring organization early; prior mentor interaction is an important application factor.",
-      evidence: ["Mentored project if accepted", "Open-source track record"],
+      description: imported ? "Find a separate official source before calling a future program actionable. One saved post never unlocks another automatically." : "A real application step, not an internship or a promise of selection.",
+      sourceLabel: imported ? undefined : "Official Google Summer of Code FAQ",
+      sourceUrl: imported ? undefined : "https://developers.google.com/open-source/gsoc/faq",
+      sourceClause: imported ? undefined : "Google recommends contacting the mentoring organization early; prior mentor interaction is an important application factor.",
+      evidence: imported ? ["Official source still needed", "Use the work above", "No assumed eligibility"] : ["Mentored project if accepted", "Open-source track record"],
       edgeToNext: { type: "signal", label: "STRENGTHENS — NEVER GUARANTEES" },
     },
     {
@@ -588,6 +619,10 @@ function researchNodes(state: FutureDoorsState): PathNode[] {
 }
 
 function communityNodes(state: FutureDoorsState): PathNode[] {
+  const connected = getConnectedOpportunity(state, "community");
+  const imported = Boolean(connected);
+  const expired = imported && monthNumber(state.selectedMonth) > monthNumber(connected!.deadlineMonth);
+  const outputs = connected?.outputs ?? ["Merged change", "Review trail"];
   return [
     {
       id: "community-contribute",
@@ -595,27 +630,27 @@ function communityNodes(state: FutureDoorsState): PathNode[] {
       stage: 1,
       kind: "opportunity",
       eyebrow: "DOOR 01 · CONTRIBUTE",
-      title: "Open-source contribution",
-      date: "Open continuously",
-      status: "available",
-      description: "Start with a bounded issue where the work and review trail remain public.",
-      sourceLabel: "GitHub open-source guide",
-      sourceUrl: "https://docs.github.com/en/get-started/exploring-projects-on-github/finding-ways-to-contribute-to-open-source-on-github",
-      sourceClause: "GitHub documents issue labels and contribution paths that help newcomers find bounded ways to contribute.",
-      evidence: ["Merged change", "Review trail"],
-      edgeToNext: { type: "creates", label: "CREATES PUBLIC CONTRIBUTION" },
+      title: connected?.title ?? "Open-source contribution",
+      date: imported ? `Closes · ${formatMonth(connected!.deadlineMonth)}` : "Open continuously",
+      status: imported ? expired ? "expired" : "available" : "available",
+      description: connected?.rationale ?? "Start with a bounded issue where the work and review trail remain public.",
+      sourceLabel: connected?.sourceLabel ?? "GitHub open-source guide",
+      sourceUrl: connected?.sourceUrl ?? "https://docs.github.com/en/get-started/exploring-projects-on-github/finding-ways-to-contribute-to-open-source-on-github",
+      sourceClause: connected?.sourceClause ?? "GitHub documents issue labels and contribution paths that help newcomers find bounded ways to contribute.",
+      evidence: outputs,
+      edgeToNext: { type: expired ? "blocked" : "creates", label: expired ? "WINDOW CLOSED — KEEP THE WORK IDEA" : "CREATES PUBLIC CONTRIBUTION" },
     },
     {
       id: "community-record",
       routeId: "community",
       stage: 2,
       kind: "evidence",
-      eyebrow: "WHAT THIS GIVES YOU",
-      title: "Work people can review",
-      date: "Code + collaboration trail",
+      eyebrow: imported ? "WHAT THIS COULD ADD" : "WHAT THIS GIVES YOU",
+      title: imported ? `${connected!.title} results` : "Work people can review",
+      date: imported ? `${outputs.length} useful result${outputs.length === 1 ? "" : "s"}` : "Code + collaboration trail",
       status: "locked",
-      description: "A public record of technical judgment, iteration, and collaboration.",
-      evidence: ["Merged work", "Maintainer feedback"],
+      description: imported ? "These are possible results, not confirmed achievements. They can make later collaboration more inspectable." : "A public record of technical judgment, iteration, and collaboration.",
+      evidence: imported ? outputs : ["Merged work", "Maintainer feedback"],
       edgeToNext: { type: "official", label: "GIVES THE NEXT STEP REAL WORK" },
     },
     {
@@ -623,12 +658,12 @@ function communityNodes(state: FutureDoorsState): PathNode[] {
       routeId: "community",
       stage: 3,
       kind: "opportunity",
-      eyebrow: "DOOR 02 · COMMUNITY",
-      title: "Developer community programs",
-      date: "After visible contribution",
+      eyebrow: imported ? "DOOR 02 · DECIDE" : "DOOR 02 · COMMUNITY",
+      title: imported ? "Choose the next verified opening" : "Developer community programs",
+      date: imported ? "After the work above" : "After visible contribution",
       status: "locked",
-      description: "Use credible public contribution as the input to community programs and collaborations.",
-      evidence: ["Peer signal", "Technical visibility"],
+      description: imported ? "Find a separate official source before calling a future program actionable. One saved post never unlocks another automatically." : "Use credible public contribution as the input to community programs and collaborations.",
+      evidence: imported ? ["Official source still needed", "Use the work above", "No assumed eligibility"] : ["Peer signal", "Technical visibility"],
       edgeToNext: { type: "signal", label: "STRENGTHENS — NEVER GUARANTEES" },
     },
     {

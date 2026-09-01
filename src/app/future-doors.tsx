@@ -12,6 +12,7 @@ import {
   formatMonth,
   getRouteFutureImpact,
   getRouteFit,
+  getOpportunityRouteOptions,
   getSelectedNode,
   reviewOpportunity,
   requireActionableDoor,
@@ -524,7 +525,8 @@ function ProofModal({ state, proofId, onApprove, onClose }: { state: FutureDoors
   </ModalFrame>;
 }
 
-function CaptureModal({ candidates, selectedId, profile, onSelect, onConnect, onClose }: { candidates: OpportunityCandidate[]; selectedId: string | null; profile: Profile; onSelect: (id: string) => void; onConnect: (id: string) => void; onClose: () => void }) {
+function CaptureModal({ candidates, selectedId, profile, priorities, onSelect, onConnect, onClose }: { candidates: OpportunityCandidate[]; selectedId: string | null; profile: Profile; priorities: RouteId[]; onSelect: (id: string) => void; onConnect: (id: string, routeId: RouteId) => void; onClose: () => void }) {
+  const [routeChoice, setRouteChoice] = useState<RouteId | null>(null);
   const sortedCandidates = sortSavedOpportunities(candidates);
   const candidate = sortedCandidates.find((item) => item.id === selectedId) ?? sortedCandidates[0];
   if (!candidate) return <ModalFrame label="YOUR OPPORTUNITY SCRAPBOOK" title="Save a screenshot. Turn it into a plan." onClose={onClose} className="capture-modal">
@@ -534,6 +536,9 @@ function CaptureModal({ candidates, selectedId, profile, onSelect, onConnect, on
   </ModalFrame>;
 
   const review = reviewOpportunity(candidate);
+  const routeOptions = getOpportunityRouteOptions(candidate);
+  const selectedRoute = routeChoice && routeOptions.includes(routeChoice) ? routeChoice : routeOptions[0];
+  const willPinSelectedRoute = Boolean(selectedRoute && !priorities.includes(selectedRoute) && priorities.length < maxPriorities);
   return <ModalFrame label={`YOUR SCRAPBOOK · ${candidates.length}/7 · BY DEADLINE`} title="Keep the posts worth acting on" onClose={onClose} className="capture-modal inbox-modal">
     <div className="inbox-layout">
       <nav className="inbox-list" aria-label="Saved opportunities">
@@ -543,15 +548,16 @@ function CaptureModal({ candidates, selectedId, profile, onSelect, onConnect, on
         <div className={`candidate-banner ${review.status}`}><small>{review.label}</small><strong>{candidate.title}</strong><span>{candidate.deadlineText}</span></div>
         <div className="candidate-checks">
           <div><small>WHAT WE CHECKED</small>{candidate.requirements.map((item) => <span key={item}>✓ {item}</span>)}<a href={candidate.sourceUrl} target="_blank" rel="noreferrer">OPEN OFFICIAL PAGE ↗</a></div>
-          <div><small>DOES IT HELP THE NEXT STEP?</small><strong>{review.pathAnswer}</strong><p>{candidate.rationale}</p></div>
+          <div><small>WHAT COULD THIS SUPPORT?</small><strong>{review.pathAnswer}</strong><p>{candidate.rationale}</p></div>
         </div>
         {candidate.missingFact ? <div className="one-question"><small>ONE THING WE STILL NEED</small><strong>{candidate.missingFact}</strong><span>Answer this in ChatGPT. The agent will update this same card.</span></div> : null}
         {candidate.prerequisite ? <div className="first-step"><small>DO THIS FIRST</small><strong>{candidate.prerequisite}</strong></div> : null}
         <div className="candidate-output"><small>WHAT YOU CAN GET</small>{candidate.outputs.map((item) => <span key={item}>✓ {item}</span>)}</div>
+        {review.status === "ready" && selectedRoute ? <div className="candidate-route-choice"><small>YOU CHOOSE WHAT THIS SUPPORTS</small><p>The agent checked the source. You decide which future plan this work belongs to.</p><div>{routeOptions.map((routeId) => <button key={routeId} className={selectedRoute === routeId ? "active" : ""} onClick={() => setRouteChoice(routeId)}><b>{routeNames[routeId].short}</b><span>{routeNames[routeId].label}</span></button>)}</div><em>{willPinSelectedRoute ? "This also pins the route in your plan." : priorities.includes(selectedRoute) ? "Already pinned in your plan." : "Your two plan pins stay unchanged."}</em></div> : null}
         <div className="checked-line">Checked {candidate.checkedAt} · using {profile.name}&apos;s confirmed facts</div>
       </section>
     </div>
-    <footer><span>NEXT: {review.nextAction}</span><button onClick={onClose}>KEEP IN SCRAPBOOK</button>{review.canConnect && review.status !== "connected" ? <button className="primary" onClick={() => onConnect(candidate.id)}>ADD TO MY PLAN</button> : null}{review.status === "connected" ? <button className="primary" onClick={onClose}>SEE MY PLAN</button> : null}</footer>
+    <footer><span>NEXT: {review.nextAction}</span><button onClick={onClose}>KEEP IN SCRAPBOOK</button>{review.canConnect && review.status !== "connected" && selectedRoute ? <button className="primary" onClick={() => onConnect(candidate.id, selectedRoute)}>ADD TO {routeNames[selectedRoute].short} PLAN</button> : null}{review.status === "connected" ? <button className="primary" onClick={onClose}>{candidate.pathRouteId ? `ON ${routeNames[candidate.pathRouteId].short} PLAN` : "SEE MY PLAN"}</button> : null}</footer>
   </ModalFrame>;
 }
 
@@ -755,12 +761,21 @@ export default function FutureDoors() {
   }); setModal(null); };
   const saveProfile = (profile: Profile) => { commit("you", "Profile facts approved", `${profile.name} · ${profile.residence}`, (current) => { const updated = { ...current, profile, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setProposedProfile(null); setModal(null); };
   const uploadCv = (file: File) => { setCvName(`Selected · ${file.name}`); commit("you", "CV selected", "Review facts before the path uses them", (current) => ({ ...current, replayToken: current.replayToken + 1 })); setProposedProfile(null); setModal("profile"); };
-  const connectOpportunity = (id: string) => {
+  const connectOpportunity = (id: string, routeId: RouteId) => {
     const candidate = stateRef.current.opportunities.find((item) => item.id === id);
     if (!candidate) throw new Error("[UNKNOWN_OPPORTUNITY] Choose a saved opportunity shown in the review window.");
     const review = reviewOpportunity(candidate);
     if (!review.canConnect || review.status === "needs_fact") throw new Error("[OPPORTUNITY_NOT_READY] Answer the missing detail or choose an opportunity that helps the next step.");
-    commit("you", "Opportunity added to path", candidate.title, (current) => ({ ...current, opportunities: current.opportunities.map((item) => ({ ...item, state: item.id === id ? "connected" as const : "review" as const })), selectedRouteId: "ship", selectedNodeId: "ship-challenge", scenario: "baseline", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 }));
+    if (!getOpportunityRouteOptions(candidate).includes(routeId)) throw new Error("[UNSUPPORTED_PLAN] Choose one of the plans this source-backed work can support.");
+    commit("you", "Opportunity added to plan", `${candidate.title} → ${routeNames[routeId].label}`, (current) => {
+      const opportunities = current.opportunities.map((item) => item.id === id
+        ? { ...item, state: "connected" as const, pathRouteId: routeId }
+        : { ...item, state: "review" as const, pathRouteId: undefined });
+      const priorities = current.priorities.includes(routeId) || current.priorities.length >= maxPriorities ? current.priorities : [...current.priorities, routeId];
+      const next: FutureDoorsState = { ...current, opportunities, priorities, scenario: "baseline", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 };
+      const firstNode = buildRoutes(next).find((route) => route.id === routeId)?.nodes[0];
+      return { ...next, selectedRouteId: routeId, selectedNodeId: firstNode?.id ?? next.selectedNodeId };
+    }, { toolName: "human_ui", source: candidate.sourceLabel, stateDiff: `saved → ${routeNames[routeId].short} plan · human choice` });
     setModal(null);
   };
 
@@ -777,7 +792,7 @@ export default function FutureDoors() {
       {modal === "bridge" ? <BridgeModal state={state} onApprove={approveBridge} onClose={() => setModal(null)} /> : null}
       {modal === "priority" ? <PriorityModal state={state} onApprove={approvePriorities} onClose={() => setModal(null)} /> : null}
       {modal === "proof" ? <ProofModal state={state} proofId={selectedProofId} onApprove={approveProofReceipt} onClose={() => setModal(null)} /> : null}
-      {modal === "capture" ? <CaptureModal candidates={state.opportunities} selectedId={reviewOpportunityId} profile={state.profile} onSelect={setReviewOpportunityId} onConnect={connectOpportunity} onClose={() => setModal(null)} /> : null}
+      {modal === "capture" ? <CaptureModal candidates={state.opportunities} selectedId={reviewOpportunityId} profile={state.profile} priorities={state.priorities} onSelect={setReviewOpportunityId} onConnect={connectOpportunity} onClose={() => setModal(null)} /> : null}
       {modal === "why" ? <WhyModal route={route} profile={state.profile} onClose={() => setModal(null)} /> : null}
       {modal === "tools" ? <ToolsModal status={webMcpStatus} onClose={() => setModal(null)} /> : null}
     </AnimatePresence>

@@ -3,6 +3,7 @@ import evalManifest from "../../evals/webmcp-journeys.json";
 import {
   WEBMCP_OUTPUT_CHARACTER_BUDGET,
   createFutureDoorsTools,
+  registerFutureDoorsTools,
   serializeToolOutput,
   siteToolNames,
   type FutureDoorsActions,
@@ -85,6 +86,12 @@ function byName(tools: SiteTool[], name: string) {
 }
 
 describe("WebMCP contract", () => {
+  it("registers the complete structured tool surface in a WebMCP-capable browser", async () => {
+    const registered: string[] = [];
+    await registerFutureDoorsTools({ registerTool: (tool) => { registered.push(tool.name); } }, makeActions([]));
+    expect(registered).toEqual([...siteToolNames]);
+  });
+
   it("keeps names, descriptions, parameter descriptions, and outputs within official guidance", () => {
     const tools = createFutureDoorsTools(makeActions([]));
     expect(tools.map((tool) => tool.name)).toEqual([...siteToolNames]);

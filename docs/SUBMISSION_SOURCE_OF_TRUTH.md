@@ -41,8 +41,8 @@ When pages disagree, use the [Official Rules](https://webmcp.devpost.com/rules) 
 - Profile facts extracted from a CV or chat are staged but cannot be confirmed by a WebMCP tool.
 - A screenshot never counts as a source. The agent must find an original official HTTPS page.
 - Up to seven opportunities remain saved without overwriting one another.
-- An opportunity with an unanswered fact or an output unrelated to the next step cannot be put on the path.
-- Only the person can move a ready opportunity from the saved list onto the path.
+- An opportunity with an unanswered fact or no concrete route-relevant output cannot be put on the path.
+- Only the person can move a ready opportunity from the saved list onto one selected plan; the agent cannot choose the plan or approve the move.
 - An official rule mismatch blocks take and pin actions instead of remaining a decorative warning.
 - Source facts, agent inference, planned work, simulated results, saved work links, and independently verified proof are never presented as the same state.
 - A separate proof path cannot claim to restore eligibility for a closed program.
@@ -90,13 +90,13 @@ Automated coverage lives in `src/lib/webmcp.test.ts`, `src/lib/future-map.test.t
 
 ## Demo sequence (target: 120–150 seconds)
 
-1. **0–12s:** Show three career-direction tabs and the saved Outreachy post. “A screenshot is a clue. Future Doors finds the official rule before it lets the opportunity into the plan.”
+1. **0–12s:** Show the scrapbook and three possible plans. “A screenshot is a clue. Future Doors finds the official rule; I decide which future plan the work can support.”
 2. **12–34s:** The agent reads the shared profile and official Outreachy rule; the page changes to `NOT THIS COHORT` and the take/pin actions are blocked.
 3. **34–55s:** Ask the agent to take it anyway; show the structured `DOOR_NOT_ACTIONABLE` refusal.
 4. **55–80s:** Ask for the best available route; the agent stages `Build in public` as P1 through `stage_priority_plan`.
 5. **80–98s:** Approve the first move in the human interface; show the proof gap update and that the same move helps another career direction.
 6. **98–118s:** Agent stages a separate source-backed contribution plan. Show Source B fact and the agent inference as different labels.
-7. **118–130s:** Approve it in the UI; Outreachy remains closed and the new output remains `PLANNED`.
+7. **118–130s:** Choose the public-contribution plan in the UI; Outreachy remains closed and the new output remains `PLANNED`.
 8. **130–145s:** Stage one direct PR URL with `stage_proof_receipt`, approve it in the UI, and show `Public collaboration · LINK SAVED · NOT VERIFIED` plus the shared changes.
 9. **145–155s:** Show the fifteen registered WebMCP tools and the human-only approval guardrails.
 

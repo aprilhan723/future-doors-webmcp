@@ -8,7 +8,7 @@ This is a rule-based stress test. It is not a survey of real judges, user resear
 
 Eight additional synthetic review lenses compared the split scrapbook/path view with one causal goal map. Seven preferred the goal map and one preferred the previous build. The simulated rubric average was 18.06/20: WebMCP Leverage 4.66, Execution 4.55, Potential Impact 4.33, and Creativity & Ambition 4.53.
 
-The winning demo moment remained specific: an official Source A rule closes an ineligible row; an agent stages a different Source B path; the person approves and selects it; the matching work type changes from `NEEDED` to `PLANNED`; a real work link can later become `LINK SAVED · NOT VERIFIED`; and the shared change strip records the separate agent and human actions. These are simulated scores, not real judge ratings or a prediction of winning.
+The winning demo moment remained specific: an official Source A rule closes an ineligible row; an agent stages a different Source B opportunity; the person chooses the one plan it supports; the matching work type changes from `NEEDED` to `PLANNED`; a real work link can later become `LINK SAVED · NOT VERIFIED`; and the shared change strip records the separate agent and human actions. These are simulated scores, not real judge ratings or a prediction of winning.
 
 ## Panel construction
 

@@ -433,6 +433,17 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
   ];
 }
 
+/**
+ * Keep browser registration separate from the React hook so the exact tool
+ * surface can be exercised in tests. This is the one place a WebMCP-capable
+ * browser receives Future Doors' structured tools.
+ */
+export async function registerFutureDoorsTools(modelContext: ModelContext, actions: FutureDoorsActions) {
+  const tools = createFutureDoorsTools(actions);
+  for (const tool of tools) await modelContext.registerTool(tool);
+  return tools;
+}
+
 export function useFutureDoorsWebMcp(actions: FutureDoorsActions) {
   const [status, setStatus] = useState<"checking" | "ready" | "preview">("checking");
 
@@ -453,10 +464,8 @@ export function useFutureDoorsWebMcp(actions: FutureDoorsActions) {
         return;
       }
 
-      const tools = createFutureDoorsTools(actions);
-
       try {
-        for (const tool of tools) await modelContext.registerTool(tool);
+        await registerFutureDoorsTools(modelContext, actions);
         window.__futureDoorsPathToolsRegistered = true;
         if (!cancelled) setStatus("ready");
       } catch {

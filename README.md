@@ -12,18 +12,18 @@ This is especially for people whose CV does not fit a single label: a builder ma
 
 The person can share an Instagram post, LinkedIn post, or poster screenshot in ChatGPT. The agent finds the original official page, exact deadline, relevant rules, and concrete outputs, then adds it to a seven-item review list. A screenshot is never treated as a source.
 
-Each saved opportunity is shown as **1 detail needed**, **ready to add**, **saved for later**, or **on your path**. A missing fact blocks connection. An opportunity whose outputs do not help the fixed next step remains saved instead of creating a false path. Only the person can put a reviewed opportunity on the path.
+Each saved opportunity is shown as **1 detail needed**, **ready to plan**, **saved for later**, or **on your path**. A missing fact blocks connection. A post whose outputs do not create a concrete product, public-collaboration, or mentorship/research result remains saved instead of creating a false path. Only the person chooses which available plan a reviewed opportunity supports.
 
 If the official rule does not match, the door is actually blocked: it cannot be taken or pinned. The agent can stage a separate, source-backed proof plan, but it must say what is source fact and what is inference. Only the person can approve that plan, and it never pretends to restore eligibility for the closed program.
 
 ## One-screen story
 
 1. A screenshot becomes a saved opportunity only after the agent finds its official source.
-2. The page shows the exact deadline, the rules that matter, one missing fact, and whether the result helps the next step.
+2. The page shows the exact deadline, the rules that matter, one missing fact, and the concrete result the opportunity could create.
 3. Up to seven opportunities stay saved without overwriting one another.
 4. The person can keep up to four career directions, each with its own target year and the work it still needs.
-5. The goal map puts each opportunity beside its timing, practical settings match, the work it could add, and any other direction it supports.
-6. The person can select at most two opportunities; selected work is labeled `PLANNED` and missing work stays visibly `NEEDED`.
+5. The person chooses whether the source-backed work supports the build, public-contribution, or mentorship plan; the route appears beside its timing, practical settings, and reusable value across their directions.
+6. The person can pin at most two routes; planned work is labeled `PLANNED` and missing work stays visibly `NEEDED`.
 7. A rule mismatch visibly closes the row and prevents a false success simulation.
 8. The agent proposes a different proof path; only the person can approve it.
 9. A direct PR, review, demo, or portfolio URL can move one work type from `PLANNED` to `LINK SAVED · NOT VERIFIED`; the change remains human-approved and visible in the shared changes.
@@ -71,7 +71,7 @@ Open [http://localhost:3000](http://localhost:3000). The human interface works i
 1. Share an opportunity screenshot in chat and ask the agent to find the original official source and add it for review.
 2. Confirm that the website shows the exact deadline, relevant requirements, and whether one detail is still needed.
 3. Confirm that unrelated or unresolved opportunities cannot be added to the path.
-4. Add a ready opportunity in the human interface.
+4. Add a ready opportunity in the human interface and choose the one plan it supports.
 5. Confirm that Maya's university location makes the December Outreachy cohort unavailable and that `simulate_take_door` is rejected.
 6. Ask the agent to stage the available open-source route as a priority and review it on the same screen.
 7. Ask the agent to prepare a separate proof plan from an official source.
