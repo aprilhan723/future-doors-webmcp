@@ -380,6 +380,19 @@ export function reviewOpportunity(candidate: OpportunityCandidate): OpportunityR
   };
 }
 
+// A saved post is useful only when it can be found again at the moment a
+// person needs to act. Keep the inbox chronological without mutating the
+// human's underlying scrapbook order.
+export function sortSavedOpportunities(candidates: OpportunityCandidate[]) {
+  return [...candidates].sort((left, right) => {
+    const stateOrder = Number(left.state !== "connected") - Number(right.state !== "connected");
+    if (stateOrder !== 0) return stateOrder;
+    const deadlineOrder = left.deadlineMonth.localeCompare(right.deadlineMonth);
+    if (deadlineOrder !== 0) return deadlineOrder;
+    return left.title.localeCompare(right.title);
+  });
+}
+
 export function getConnectedOpportunity(state: FutureDoorsState) {
   return state.opportunities.find((candidate) => candidate.state === "connected");
 }

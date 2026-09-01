@@ -11,6 +11,7 @@ import {
   requireRouteId,
   requireVisibleStep,
   sanitizePersistedState,
+  sortSavedOpportunities,
   summarizeRouteComparison,
   summarizeState,
   type Scenario,
@@ -239,5 +240,15 @@ describe("saved opportunity review", () => {
   it("allows only an opportunity that creates work useful to the next step", () => {
     expect(reviewOpportunity(base)).toMatchObject({ status: "ready", canConnect: true });
     expect(reviewOpportunity({ ...base, outputs: ["Attendance certificate"] })).toMatchObject({ status: "saved_only", canConnect: false });
+  });
+
+  it("keeps connected work visible, then sorts the remaining scrapbook by official deadline", () => {
+    const ordered = sortSavedOpportunities([
+      { ...base, id: "late", title: "Later review", deadlineMonth: "2027-11" },
+      { ...base, id: "connected", title: "Pinned proof", state: "connected", deadlineMonth: "2030-01" },
+      { ...base, id: "soon", title: "Soon review", deadlineMonth: "2027-04" },
+    ]);
+
+    expect(ordered.map((item) => item.id)).toEqual(["connected", "soon", "late"]);
   });
 });

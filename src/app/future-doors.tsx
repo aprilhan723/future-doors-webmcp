@@ -20,6 +20,7 @@ import {
   requireRouteId,
   requireVisibleStep,
   sanitizePersistedState,
+  sortSavedOpportunities,
   summarizeRouteComparison,
   summarizeState,
   type Actor,
@@ -434,8 +435,8 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof }: { state
 function EditorialWorkspace({ state, routes, cvName, onUpload, onReview, onGoal, onSelectGoal, onAddGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onAddGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
   return <section className="clarity-workspace">
     <header className="clarity-hero">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .48 }}><small>SAVED OPPORTUNITY → OFFICIAL SOURCE → YOUR PLAN</small><h1>Choose a future. <em>Keep others open.</em></h1><p>Pick up to two moves. Each creates work you can carry into more than one future.</p></motion.div>
-      <button className="clarity-capture" onClick={onCapture}><span className="clarity-post-mark">POST</span><span><small>ADD AN OPPORTUNITY</small><strong>Screenshot or link</strong></span><b>＋</b></button>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .48 }}><small>YOUR SAVED POSTS → OFFICIAL SOURCE → FUTURE PLAN</small><h1>Turn what you save into <em>a real plan.</em></h1><p>Choose the future first. Then pin only the opportunities that create useful proof for it.</p></motion.div>
+      <button className="clarity-capture" onClick={onCapture}><span className="clarity-post-mark">POST</span><span><small>SCRAPBOOK · {state.opportunities.length}/7 SAVED</small><strong>{state.opportunities.length ? "Review saved posts" : "Save screenshot or link"}</strong></span><b>＋</b></button>
     </header>
     <div className="clarity-board">
       <FutureDeck state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} onSelectGoal={onSelectGoal} onAddGoal={onAddGoal} />
@@ -524,18 +525,19 @@ function ProofModal({ state, proofId, onApprove, onClose }: { state: FutureDoors
 }
 
 function CaptureModal({ candidates, selectedId, profile, onSelect, onConnect, onClose }: { candidates: OpportunityCandidate[]; selectedId: string | null; profile: Profile; onSelect: (id: string) => void; onConnect: (id: string) => void; onClose: () => void }) {
-  const candidate = candidates.find((item) => item.id === selectedId) ?? candidates[0];
-  if (!candidate) return <ModalFrame label="THE INPUT HAPPENS IN CHATGPT" title="Continue with a screenshot or link" onClose={onClose} className="capture-modal">
-    <div className="capture-steps"><span><b>1</b><strong>Share a screenshot</strong><small>Drop an Instagram post, LinkedIn post, or poster into ChatGPT.</small></span><i>→</i><span><b>2</b><strong>We find the official page</strong><small>The agent checks the real deadline and the rules that matter to you.</small></span><i>→</i><span><b>3</b><strong>You choose where it goes</strong><small>It joins your path only when it helps the next step.</small></span></div>
+  const sortedCandidates = sortSavedOpportunities(candidates);
+  const candidate = sortedCandidates.find((item) => item.id === selectedId) ?? sortedCandidates[0];
+  if (!candidate) return <ModalFrame label="YOUR OPPORTUNITY SCRAPBOOK" title="Save a screenshot. Turn it into a plan." onClose={onClose} className="capture-modal">
+    <div className="capture-steps"><span><b>1</b><strong>Save the post</strong><small>Share the screenshot or link you would normally lose in a camera roll.</small></span><i>→</i><span><b>2</b><strong>Check the real source</strong><small>The agent finds the official page, deadline, and rules.</small></span><i>→</i><span><b>3</b><strong>Pin what fits</strong><small>You decide if it belongs on one of your future plans.</small></span></div>
     <div className="capture-prompt"><small>ONE NEXT ACTION · SEND THIS WITH YOUR SCREENSHOT</small><p>“Find the official page for this. Check the rule against my profile, then stage it in Future Doors for my review.”</p></div>
-    <footer><span>A screenshot is only a clue. We always look for the official page.</span><button onClick={onClose}>DONE</button></footer>
+    <footer><span>Posts are clues. Only official pages set dates and requirements.</span><button onClick={onClose}>DONE</button></footer>
   </ModalFrame>;
 
   const review = reviewOpportunity(candidate);
-  return <ModalFrame label={`SAVED OPPORTUNITIES · ${candidates.length}/7`} title="Choose what belongs on your path" onClose={onClose} className="capture-modal inbox-modal">
+  return <ModalFrame label={`YOUR SCRAPBOOK · ${candidates.length}/7 · BY DEADLINE`} title="Keep the posts worth acting on" onClose={onClose} className="capture-modal inbox-modal">
     <div className="inbox-layout">
       <nav className="inbox-list" aria-label="Saved opportunities">
-        {candidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>{item.deadlineText}</span></button>; })}
+        {sortedCandidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>DUE · {item.deadlineText}</span></button>; })}
       </nav>
       <section className="candidate-review">
         <div className={`candidate-banner ${review.status}`}><small>{review.label}</small><strong>{candidate.title}</strong><span>{candidate.deadlineText}</span></div>
@@ -549,7 +551,7 @@ function CaptureModal({ candidates, selectedId, profile, onSelect, onConnect, on
         <div className="checked-line">Checked {candidate.checkedAt} · using {profile.name}&apos;s confirmed facts</div>
       </section>
     </div>
-    <footer><span>NEXT: {review.nextAction}</span><button onClick={onClose}>KEEP SAVED</button>{review.canConnect && review.status !== "connected" ? <button className="primary" onClick={() => onConnect(candidate.id)}>ADD TO MY PATH</button> : null}{review.status === "connected" ? <button className="primary" onClick={onClose}>SEE MY PATH</button> : null}</footer>
+    <footer><span>NEXT: {review.nextAction}</span><button onClick={onClose}>KEEP IN SCRAPBOOK</button>{review.canConnect && review.status !== "connected" ? <button className="primary" onClick={() => onConnect(candidate.id)}>ADD TO MY PLAN</button> : null}{review.status === "connected" ? <button className="primary" onClick={onClose}>SEE MY PLAN</button> : null}</footer>
   </ModalFrame>;
 }
 
@@ -762,7 +764,7 @@ export default function FutureDoors() {
     setModal(null);
   };
 
-  const openCapture = () => { setReviewOpportunityId(state.opportunities[0]?.id ?? null); setModal("capture"); };
+  const openCapture = () => { setReviewOpportunityId(sortSavedOpportunities(state.opportunities)[0]?.id ?? null); setModal("capture"); };
   const startAndCapture = () => { setStarted(true); openCapture(); };
 
   return <main className="spatial-shell editorial-shell">
