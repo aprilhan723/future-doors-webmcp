@@ -10,6 +10,7 @@ import {
   cloneInitialState,
   downstreamEffect,
   formatMonth,
+  getRouteFutureImpact,
   getRouteFit,
   getSelectedNode,
   reviewOpportunity,
@@ -288,7 +289,7 @@ function OpeningSequence({ onDone }: { onDone: () => void }) {
       <b className="clarity-clock-hand one" /><b className="clarity-clock-hand two" />
       <em>NOW</em>
     </div>
-    <motion.div className="clarity-opening-copy" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.55 }}>
+    <motion.div className="clarity-opening-copy" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.55 }}>
       <small>FROM SAVED OPPORTUNITY TO A REAL PLAN</small>
       <h1>Keep the futures you care about open.</h1>
     </motion.div>
@@ -299,9 +300,9 @@ function OpeningSequence({ onDone }: { onDone: () => void }) {
 function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: () => void; onTools: () => void }) {
   return <section className="clarity-launch" aria-labelledby="launch-title">
     <motion.div className="clarity-launch-copy" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .62, ease: [0.16, 1, 0.3, 1] }}>
-      <small>OPPORTUNITY PLANNING FOR MORE THAN ONE FUTURE</small>
-      <h1 id="launch-title">Don’t just save it.<br /><em>See where it helps you go.</em></h1>
-      <p>Bring a screenshot or link. Future Doors finds the official source, checks what applies to you, and lets you keep only the next moves that fit a future you chose.</p>
+      <small>A PLAN FOR MORE THAN ONE POSSIBLE FUTURE</small>
+      <h1 id="launch-title">Save a post.<br /><em>Keep more futures open.</em></h1>
+      <p>Bring a screenshot or link. The agent checks the official source; you choose the move that creates useful work across your futures.</p>
       <div className="clarity-launch-actions">
         <button className="primary" onClick={onAdd}>ADD A SCREENSHOT OR LINK <span>→</span></button>
         <button onClick={onDemo}>TRY THE EXAMPLE</button>
@@ -327,6 +328,11 @@ const simpleRouteDetails: Record<RouteId, { timing: string; signal: string; trac
 };
 
 const routeDisplayOrder: RouteId[] = ["community", "research", "ship"];
+const routeOutcomeLabels: Record<RouteId, string> = {
+  community: "Public collaboration",
+  research: "Mentor feedback",
+  ship: "A shipped product",
+};
 
 function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoorsState; routes: Route[]; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void }) {
   const [track, setTrack] = useState<"all" | RouteId>("all");
@@ -349,6 +355,7 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
         const node = item.nodes[0];
         const detail = simpleRouteDetails[item.id];
         const fit = getRouteFit(state, item.id);
+        const impact = getRouteFutureImpact(state, item.id);
         const pinned = priorities.includes(item.id);
         const staged = proposal.has(item.id) && !pinned;
         const unavailable = node.status === "ineligible" || node.status === "expired" || node.status === "blocked";
@@ -359,7 +366,11 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
             <span className="opportunity-number">0{index + 1}</span>
             <span className="opportunity-copy"><small>{stateLabel}</small><strong>{displayNodeTitle(node)}</strong><em>{detail.description}</em></span>
           </button>
-          <div className="opportunity-fit"><span>{fit.matches} of {fit.total} preferences fit</span><b>{detail.signal}</b></div>
+          <div className="opportunity-fit">
+            <span>{fit.matches} of {fit.total} fit your setup</span>
+            <b>Helps {impact.count} {impact.count === 1 ? "future" : "futures"}</b>
+            <strong>Builds {detail.signal}</strong>
+          </div>
           <div className="opportunity-action">
             {unavailable ? node.sourceUrl ? <a href={node.sourceUrl} target="_blank" rel="noreferrer">See rule ↗</a> : <span>Not available</span>
               : <button disabled={atLimit} onClick={() => onToggle(item.id)}>{pinned ? "Remove" : atLimit ? "Two picked" : "Add to plan"}</button>}
@@ -371,11 +382,11 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
   </section>;
 }
 
-function FutureDeck({ state, cvName, onUpload, onReview, onSelectGoal, onAddGoal }: { state: FutureDoorsState; cvName: string; onUpload: (file: File) => void; onReview: () => void; onSelectGoal: (id: string) => void; onAddGoal: () => void }) {
+function FutureDeck({ state, cvName, onUpload, onReview, onGoal, onSelectGoal, onAddGoal }: { state: FutureDoorsState; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onAddGoal: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   return <aside className="future-deck" aria-label="Your career futures and profile">
     <input ref={inputRef} hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); }} />
-    <header className="deck-heading"><span><small>1 · YOUR FUTURES</small><h2>Choose a direction.</h2></span><button onClick={onReview}>Edit profile</button></header>
+    <header className="deck-heading"><span><small>1 · YOUR FUTURES</small><h2>Choose a direction.</h2></span><button onClick={onGoal}>Edit direction</button></header>
     <button className="future-profile" onClick={onReview}><span>MP</span><div><strong>{state.profile.name}</strong><small>{state.profile.studyStatus} · {formatMonth(state.profile.graduationMonth)}</small></div><b>›</b></button>
     <div className="future-list" role="list" aria-label="Career directions">
       {state.goals.map((goal) => <button role="listitem" key={goal.id} className={goal.id === state.selectedGoalId ? "selected" : ""} onClick={() => onSelectGoal(goal.id)}>
@@ -392,18 +403,20 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof }: { state
   const planned = new Set(state.priorities.map((id) => ROUTE_PROOF[id]));
   const linked = new Set(state.proofReceipts.map((receipt) => receipt.proofId));
   const selectedGoal = state.goals.find((goal) => goal.id === state.selectedGoalId) ?? state.goals[0];
+  const activeFutures = state.goals.filter((goal) => state.priorities.some((routeId) => goal.supportedRoutes.includes(routeId)));
   const nextUnplanned = routeDisplayOrder.find((id) => !state.priorities.includes(id) && !["ineligible", "expired", "blocked"].includes(routes.find((route) => route.id === id)?.nodes[0]?.status ?? ""));
   return <aside className="plan-deck" aria-label="Your selected plan and remaining gaps">
     <header className="deck-heading"><span><small>3 · YOUR PLAN</small><h2>What you chose.</h2></span><b>{state.priorities.length} / {maxPriorities}</b></header>
-    <div className="plan-target"><small>BUILDING TOWARD</small><strong>{selectedGoal.title}</strong><span>Target · {selectedGoal.targetYear}</span></div>
+    <div className="plan-target"><small>BUILDING TOWARD</small><strong>{selectedGoal.title}</strong><span>Target · {selectedGoal.targetYear}</span><em>{state.priorities.length ? `Your picks can help ${activeFutures.length} ${activeFutures.length === 1 ? "future" : "futures"}.` : "Pick a move to keep more futures open."}</em></div>
     <section className="plan-pins" aria-label="Selected next moves">
       <small>YOUR NEXT MOVES</small>
       {state.priorities.length ? state.priorities.map((id, index) => {
         const route = routes.find((item) => item.id === id);
         const proofId = ROUTE_PROOF[id];
         const hasLink = linked.has(proofId);
+        const impact = getRouteFutureImpact(state, id);
         return <motion.article key={id} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * .08 }}>
-          <button onClick={() => onRoute(id)}><i>{index + 1}</i><span><strong>{route?.nodes[0] ? displayNodeTitle(route.nodes[0]) : routeNames[id].label}</strong><em>Builds: {simpleRouteDetails[id].signal}</em></span></button>
+          <button onClick={() => onRoute(id)}><i>{index + 1}</i><span><strong>{route?.nodes[0] ? displayNodeTitle(route.nodes[0]) : routeNames[id].label}</strong><em>Builds {simpleRouteDetails[id].signal} · helps {impact.count} {impact.count === 1 ? "future" : "futures"}</em></span></button>
           <div><button className="plan-link" onClick={() => onProof(proofId)}>{hasLink ? "View link" : "Add proof"}</button><button className="remove-pin" onClick={() => onTogglePriority(id)} aria-label={`Remove ${routeNames[id].label}`}>×</button></div>
         </motion.article>;
       }) : <div className="empty-plan"><span>Nothing picked yet.</span><p>Choose an activity in the middle. It appears here only after you add it.</p></div>}
@@ -418,14 +431,14 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof }: { state
   </aside>;
 }
 
-function EditorialWorkspace({ state, routes, cvName, onUpload, onReview, onSelectGoal, onAddGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onAddGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
+function EditorialWorkspace({ state, routes, cvName, onUpload, onReview, onGoal, onSelectGoal, onAddGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onAddGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
   return <section className="clarity-workspace">
     <header className="clarity-hero">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .48 }}><small>SAVED OPPORTUNITY → OFFICIAL SOURCE → YOUR PLAN</small><h1>Choose a future. <em>Build its next moves.</em></h1><p>Keep more than one direction open without treating every saved post as a plan.</p></motion.div>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .48 }}><small>SAVED OPPORTUNITY → OFFICIAL SOURCE → YOUR PLAN</small><h1>Choose a future. <em>Keep others open.</em></h1><p>Pick up to two moves. Each creates work you can carry into more than one future.</p></motion.div>
       <button className="clarity-capture" onClick={onCapture}><span className="clarity-post-mark">POST</span><span><small>ADD AN OPPORTUNITY</small><strong>Screenshot or link</strong></span><b>＋</b></button>
     </header>
     <div className="clarity-board">
-      <FutureDeck state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onSelectGoal={onSelectGoal} onAddGoal={onAddGoal} />
+      <FutureDeck state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} onSelectGoal={onSelectGoal} onAddGoal={onAddGoal} />
       <PinProofStage state={state} routes={routes} onToggle={onTogglePriority} onRoute={onRoute} />
       <PlanDeck state={state} routes={routes} onRoute={onRoute} onTogglePriority={onTogglePriority} onProof={onProof} />
     </div>
@@ -465,12 +478,14 @@ function ProfileModal({ profile, cvName, proposed, onSave, onClose }: { profile:
   </ModalFrame>;
 }
 
-function GoalModal({ profile, mode, onSave, onClose }: { profile: Profile; mode: "edit" | "add"; onSave: (goal: string, year: number, gap: string) => void; onClose: () => void }) {
+function GoalModal({ profile, careerGoal, mode, onSave, onClose }: { profile: Profile; careerGoal?: FutureDoorsState["goals"][number]; mode: "edit" | "add"; onSave: (goal: string, year: number, gap: string, supportedRoutes: RouteId[]) => void; onClose: () => void }) {
   const adding = mode === "add";
   const [goal, setGoal] = useState(adding ? "" : profile.goal);
   const [year, setYear] = useState(adding ? Math.max(2027, profile.targetYear) : profile.targetYear);
   const [gap, setGap] = useState(adding ? "A visible proof of work" : profile.gap);
-  return <ModalFrame label={adding ? "ADD A DIRECTION" : "SET A DIRECTION"} title={adding ? "Keep another future open" : "Where should this path lead?"} onClose={onClose} className="goal-modal"><div className="modal-fields"><label className="wide">Direction<input autoFocus placeholder="For example, Sustainability product builder" value={goal} onChange={(e) => setGoal(e.target.value)} /></label><label>Target year<input type="number" min="2027" max="2040" value={year} onChange={(e) => setYear(Number(e.target.value) || profile.targetYear)} /></label><label className="wide">What would show progress?<input value={gap} onChange={(e) => setGap(e.target.value)} /></label></div><p className="modal-note">You can keep up to four directions. This plan shows useful evidence, never a hiring or acceptance prediction.</p><footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(goal.trim() || (adding ? "New direction" : profile.goal), Math.min(2040, Math.max(2027, year)), gap.trim() || "A visible proof of work")}>{adding ? "ADD TO MY GOALS" : "REBUILD PATH"}</button></footer></ModalFrame>;
+  const [supportedRoutes, setSupportedRoutes] = useState<RouteId[]>(adding ? ["ship", "community", "research"] : careerGoal?.supportedRoutes ?? ["ship", "community", "research"]);
+  const toggleSupport = (routeId: RouteId) => setSupportedRoutes((current) => current.includes(routeId) ? current.length > 1 ? current.filter((id) => id !== routeId) : current : [...current, routeId]);
+  return <ModalFrame label={adding ? "ADD A DIRECTION" : "SET A DIRECTION"} title={adding ? "Keep another future open" : "Where should this path lead?"} onClose={onClose} className="goal-modal"><div className="modal-fields"><label className="wide">Direction<input autoFocus placeholder="For example, Sustainability product builder" value={goal} onChange={(e) => setGoal(e.target.value)} /></label><label>Target year<input type="number" min="2027" max="2040" value={year} onChange={(e) => setYear(Number(e.target.value) || profile.targetYear)} /></label><label className="wide">What would show progress?<input value={gap} onChange={(e) => setGap(e.target.value)} /></label><fieldset className="wide goal-support"><legend>What kind of work can help this future?</legend><span>Choose at least one. This controls the reusable-work map, not a success prediction.</span><div>{routeDisplayOrder.map((routeId) => <button type="button" key={routeId} className={supportedRoutes.includes(routeId) ? "selected" : ""} onClick={() => toggleSupport(routeId)}><i>{supportedRoutes.includes(routeId) ? "✓" : ""}</i>{routeOutcomeLabels[routeId]}</button>)}</div></fieldset></div><p className="modal-note">You can keep up to four directions. This plan shows useful evidence, never a hiring or acceptance prediction.</p><footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(goal.trim() || (adding ? "New direction" : profile.goal), Math.min(2040, Math.max(2027, year)), gap.trim() || "A visible proof of work", supportedRoutes)}>{adding ? "ADD TO MY GOALS" : "REBUILD PATH"}</button></footer></ModalFrame>;
 }
 
 function BridgeModal({ state, onApprove, onClose }: { state: FutureDoorsState; onApprove: () => void; onClose: () => void }) {
@@ -726,12 +741,12 @@ export default function FutureDoors() {
   const route = routes.find((item) => item.id === state.selectedRouteId) ?? routes[0];
   const selectedNode = getSelectedNode(state);
 
-  const saveGoal = (goal: string, targetYear: number, gap: string) => { commit("you", "Goal updated", `${goal} · ${targetYear}`, (current) => { const goals = current.goals.map((item) => item.id === current.selectedGoalId ? { ...item, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap } : item); const updated = { ...current, goals, profile: { ...current.profile, goal, targetYear, gap }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setModal(null); };
-  const addCareerGoal = (goal: string, targetYear: number, gap: string) => { commit("you", "Career goal added", `${goal} · ${targetYear}`, (current) => {
+  const saveGoal = (goal: string, targetYear: number, gap: string, supportedRoutes: RouteId[]) => { commit("you", "Goal updated", `${goal} · ${targetYear}`, (current) => { const goals = current.goals.map((item) => item.id === current.selectedGoalId ? { ...item, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap, supportedRoutes } : item); const updated = { ...current, goals, profile: { ...current.profile, goal, targetYear, gap }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setModal(null); };
+  const addCareerGoal = (goal: string, targetYear: number, gap: string, supportedRoutes: RouteId[]) => { commit("you", "Career goal added", `${goal} · ${targetYear}`, (current) => {
     if (current.goals.length >= 4) return current;
     const slug = goal.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 28) || "direction";
     const id = `${slug}-${Date.now().toString(36)}`;
-    const nextGoal = { id, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap, supportedRoutes: ["ship", "community", "research"] as RouteId[] };
+    const nextGoal = { id, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap, supportedRoutes };
     const updated = { ...current, goals: [...current.goals, nextGoal], selectedGoalId: id, profile: { ...current.profile, goal, targetYear, gap }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } };
     const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader);
     return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 };
@@ -756,7 +771,7 @@ export default function FutureDoors() {
     {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => { setGoalModalMode("edit"); setModal("goal"); }} onSelectGoal={selectCareerGoal} onAddGoal={() => { setGoalModalMode("add"); setModal("goal"); }} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}
-      {modal === "goal" ? <GoalModal profile={state.profile} mode={goalModalMode} onSave={goalModalMode === "add" ? addCareerGoal : saveGoal} onClose={() => setModal(null)} /> : null}
+      {modal === "goal" ? <GoalModal profile={state.profile} careerGoal={state.goals.find((goal) => goal.id === state.selectedGoalId)} mode={goalModalMode} onSave={goalModalMode === "add" ? addCareerGoal : saveGoal} onClose={() => setModal(null)} /> : null}
       {modal === "bridge" ? <BridgeModal state={state} onApprove={approveBridge} onClose={() => setModal(null)} /> : null}
       {modal === "priority" ? <PriorityModal state={state} onApprove={approvePriorities} onClose={() => setModal(null)} /> : null}
       {modal === "proof" ? <ProofModal state={state} proofId={selectedProofId} onApprove={approveProofReceipt} onClose={() => setModal(null)} /> : null}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRoutes,
   cloneInitialState,
+  getRouteFutureImpact,
   getRouteFit,
   reviewOpportunity,
   requireActionableDoor,
@@ -129,6 +130,24 @@ describe("path input validation", () => {
     expect(restored.goals).toHaveLength(4);
     expect(restored.selectedGoalId).toBe("goal-4");
     expect(restored.profile.goal).toBe("Direction 4");
+  });
+
+  it("shows only the futures a person explicitly connects to each proof path", () => {
+    const state = cloneInitialState();
+
+    expect(getRouteFutureImpact(state, "community")).toMatchObject({
+      count: 3,
+      goalIds: ["ai-product", "hardware-story", "learning-founder"],
+      includesSelectedGoal: true,
+    });
+    expect(getRouteFutureImpact(state, "ship")).toMatchObject({
+      count: 2,
+      goalIds: ["ai-product", "learning-founder"],
+    });
+
+    state.goals[1].supportedRoutes = ["research"];
+    expect(getRouteFutureImpact(state, "community")).toMatchObject({ count: 2, goalIds: ["ai-product", "learning-founder"] });
+    expect(summarizeRouteComparison(state).routes.find((route) => route.id === "community")?.helpsFutures).toBe(2);
   });
 });
 

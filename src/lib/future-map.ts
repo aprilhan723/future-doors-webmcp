@@ -84,6 +84,13 @@ export type RouteFit = {
   reasons: string[];
 };
 
+export type RouteFutureImpact = {
+  count: number;
+  goalIds: string[];
+  goalLabels: string[];
+  includesSelectedGoal: boolean;
+};
+
 export type CareerGoal = {
   id: string;
   title: string;
@@ -678,6 +685,21 @@ export function getSelectedCareerGoal(state: FutureDoorsState) {
   return state.goals.find((goal) => goal.id === state.selectedGoalId) ?? state.goals[0];
 }
 
+/**
+ * A route can create work that remains useful beyond the currently selected goal.
+ * This is a transparent map of the directions the person has explicitly connected
+ * to that route — never a prediction about hiring, admissions, or success.
+ */
+export function getRouteFutureImpact(state: FutureDoorsState, routeId: RouteId): RouteFutureImpact {
+  const goals = state.goals.filter((goal) => goal.supportedRoutes.includes(routeId));
+  return {
+    count: goals.length,
+    goalIds: goals.map((goal) => goal.id),
+    goalLabels: goals.map((goal) => goal.shortLabel),
+    includesSelectedGoal: goals.some((goal) => goal.id === state.selectedGoalId),
+  };
+}
+
 export function buildRoutes(state: FutureDoorsState): Route[] {
   const goalText = state.profile.goal.toLowerCase();
   const strengthText = state.profile.strengths.join(" ").toLowerCase();
@@ -778,7 +800,14 @@ export function summarizeState(state: FutureDoorsState) {
   return {
     product: "Future Doors",
     goal: { role: state.profile.goal, by: state.profile.targetYear },
-    goals: { selected: state.selectedGoalId, n: state.goals.length },
+    goals: {
+      selected: state.selectedGoalId,
+      n: state.goals.length,
+      // Number of person-defined futures that each route can support. Counts keep
+      // the snapshot within the WebMCP output budget; full goal details remain
+      // available through the UI and focused tools.
+      reuse: Object.fromEntries(ROUTE_IDS.map((routeId) => [routeId, getRouteFutureImpact(state, routeId).count])),
+    },
     profile: {
       age: state.profile.age,
       grad: state.profile.graduationMonth,
@@ -788,9 +817,9 @@ export function summarizeState(state: FutureDoorsState) {
       status: state.profile.studyStatus,
       field: state.profile.fieldOfStudy,
       auth: state.profile.workAuthorization,
-      strengths: state.profile.strengths,
+      strengths: state.profile.strengths.map((strength) => compactText(strength, 28)),
       ...(state.profile.credentials.length ? { credentials: state.profile.credentials } : {}),
-      gap: state.profile.gap,
+      gap: compactText(state.profile.gap, 38),
       // [mode, compensation, weekly time, schedule, participation]
       prefs: [
         state.profile.preferences.workMode === "Remote first" ? "remote" : state.profile.preferences.workMode === "Hybrid okay" ? "hybrid" : "onsite",
@@ -817,20 +846,20 @@ export function summarizeState(state: FutureDoorsState) {
     ...(state.priorityProposal.state === "staged" ? { priorityProposal: "staged" } : {}),
     route: {
       id: selectedRoute.id,
-      why: selectedRoute.summary,
+      why: compactText(selectedRoute.summary, 72),
       eta: selectedRoute.eta,
       steps: selectedRoute.nodes.map((node) => ({
         id: node.id,
-        title: compactText(node.title),
+        title: compactText(node.title, 34),
         status: node.status,
-        ...((node.kind === "evidence" || node.kind === "bridge") && node.evidence.length ? { evidence: node.evidence.slice(0, 3).map((item) => compactText(item, 36)) } : {}),
+        ...((node.kind === "evidence" || node.kind === "bridge") && node.evidence.length ? { evidence: node.evidence.slice(0, 2).map((item) => compactText(item, 28)) } : {}),
       })),
     },
     other: routes.filter((route) => route.id !== selectedRoute.id).map((route) => route.id),
     guardrails: [
-      "human_approval_for_writes",
-      "unknown_or_ineligible_not_actionable",
-      "planned_never_means_attached",
+      "human_approval",
+      "unconfirmed_closed",
+      "planned_not_attached",
     ],
   };
 }
@@ -844,6 +873,7 @@ export function summarizeRouteComparison(state: FutureDoorsState) {
       id: route.id,
       why: route.summary,
       preferenceMatch: getRouteFit(state, route.id),
+      helpsFutures: getRouteFutureImpact(state, route.id).count,
       eta: route.eta,
       firstDoor: route.nodes[0].title,
       creates: route.nodes[1].evidence,
