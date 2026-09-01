@@ -605,7 +605,12 @@ function ToolsModal({ status, onClose }: { status: string; onClose: () => void }
     }
     setCopied(didCopy ? index : null);
   };
-  return <ModalFrame label="PEOPLE + AGENTS, ON THE SAME PAGE" title="What WebMCP changes" onClose={onClose} className="tools-modal"><p className="modal-note">The agent can work with this path directly instead of clicking around and guessing. It can suggest changes; only you can approve them.</p><div className="tool-grid ability-grid">{abilities.map(([title, detail]) => <span key={title}><b>✓ {title}</b><small>{detail}</small></span>)}</div><section className="judge-demo"><header><span><small>90-SECOND JUDGE DEMO</small><strong>Run these in ChatGPT</strong></span><b>Approve on the page between steps.</b></header>{judgeDemoPrompts.map((prompt, index) => <div key={prompt.label}><span><small>{prompt.label}</small><p>{prompt.text}</p></span><button onClick={() => copyPrompt(index)}>{copied === index ? "COPIED ✓" : "COPY"}</button></div>)}</section><footer><span><i className={`capability-dot ${status}`} /> {siteToolNames.length} structured tools · {status === "ready" ? "connected here" : "ready in a WebMCP browser"}</span><button onClick={onClose}>DONE</button></footer></ModalFrame>;
+  const connectionCopy = status === "ready"
+    ? `${siteToolNames.length} structured tools · connected here`
+    : status === "checking"
+      ? "Checking for a WebMCP connection…"
+      : `${siteToolNames.length} structured tools · open this page in ChatGPT to connect`;
+  return <ModalFrame label="PEOPLE + AGENTS, ON THE SAME PAGE" title="What WebMCP changes" onClose={onClose} className="tools-modal"><p className="modal-note">The agent can work with this path directly instead of clicking around and guessing. It can suggest changes; only you can approve them.</p><div className="tool-grid ability-grid">{abilities.map(([title, detail]) => <span key={title}><b>✓ {title}</b><small>{detail}</small></span>)}</div><section className="judge-demo"><header><span><small>90-SECOND JUDGE DEMO</small><strong>Run these in ChatGPT</strong></span><b>Approve on the page between steps.</b></header>{judgeDemoPrompts.map((prompt, index) => <div key={prompt.label}><span><small>{prompt.label}</small><p>{prompt.text}</p></span><button onClick={() => copyPrompt(index)}>{copied === index ? "COPIED ✓" : "COPY"}</button></div>)}</section><footer><span><i className={`capability-dot ${status}`} /> {connectionCopy}</span><button onClick={onClose}>DONE</button></footer></ModalFrame>;
 }
 
 export default function FutureDoors() {
