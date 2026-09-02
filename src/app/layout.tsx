@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./atlas.css";
 
 export const metadata: Metadata = {
   title: "Future Doors — From a saved post to a real plan",
