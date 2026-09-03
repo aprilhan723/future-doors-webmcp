@@ -2,7 +2,7 @@
 
 Future Doors turns a saved opportunity screenshot into a source-backed decision and a proof plan across the career directions a person wants to keep open.
 
-> Save a post, confirm the official facts, choose up to two moves, and see what each move can build for up to four possible futures.
+> Save a post, confirm the official facts, drag up to three checked doors into an Evidence Dock, and see which goal-specific signals the mix covers across up to four possible futures.
 
 Job sites recommend openings. Career explorers compare roles and skills. Credential products show predefined learning ladders. Future Doors focuses on a different link:
 
@@ -23,7 +23,7 @@ If the official rule does not match, the door is actually blocked: it cannot be 
 3. Up to seven opportunities stay saved without overwriting one another.
 4. The person can keep up to four career directions, each with its own target year and the work it still needs.
 5. The person chooses whether the source-backed work supports the build, public-contribution, or mentorship plan; the route appears beside its timing, practical settings, and reusable value across their directions.
-6. The person can pin at most two routes; planned work is labeled `PLANNED` and missing work stays visibly `NEEDED`.
+6. The person can combine up to three source-checked routes in an Evidence Dock; planned work is labeled `PLANNED` and missing goal-specific signals stay visibly `NEEDED`.
 7. A rule mismatch visibly closes the row and prevents a false success simulation.
 8. The agent proposes a different proof path; only the person can approve it.
 9. A direct PR, review, demo, or portfolio URL can move one work type from `PLANNED` to `LINK SAVED · NOT VERIFIED`; the change remains human-approved and visible in the shared changes.

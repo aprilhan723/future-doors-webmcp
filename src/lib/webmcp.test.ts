@@ -41,6 +41,9 @@ function makeActions(calls: ExpectedCall[]): FutureDoorsActions {
       source_clause: proposal.sourceClause,
       deadline_month: proposal.deadlineMonth,
       deadline_text: proposal.deadlineText,
+      ...(proposal.activityStartMonth ? { activity_start_month: proposal.activityStartMonth } : {}),
+      ...(proposal.activityEndMonth ? { activity_end_month: proposal.activityEndMonth } : {}),
+      ...(proposal.weeklyHours ? { weekly_hours: proposal.weeklyHours } : {}),
       requirements: proposal.requirements,
       ...(proposal.missingFact ? { missing_fact: proposal.missingFact } : {}),
       ...(proposal.prerequisite ? { prerequisite: proposal.prerequisite } : {}),
@@ -155,7 +158,39 @@ describe("WebMCP contract", () => {
       route_ids: ["ship", "ship"],
       rationale: "These duplicate routes should not be accepted.",
     })).toThrow("[INVALID_ARGUMENT]");
+    expect(() => byName(tools, "stage_opportunity_from_source").execute({
+      title: "Example program",
+      source_label: "Official program page",
+      source_url: "https://example.com/program",
+      source_clause: "This official clause is long enough.",
+      deadline_month: "2027-08",
+      deadline_text: "August 31, 2027 at 5:00 PM KST",
+      weekly_hours: 7.5,
+      requirements: ["Current student"],
+      rationale: "This creates a public artifact relevant to the goal.",
+      outputs: ["Public demo"],
+    })).toThrow("[INVALID_INTEGER]");
     expect(calls).toEqual([]);
+  });
+
+  it("keeps source-stated timing separate from a guessed schedule", async () => {
+    const calls: ExpectedCall[] = [];
+    const tools = createFutureDoorsTools(makeActions(calls));
+    await byName(tools, "stage_opportunity_from_source").execute({
+      title: "Official summer build program",
+      source_label: "Official program page",
+      source_url: "https://example.com/program",
+      source_clause: "Participants work from June through August for a stated 10 hours each week.",
+      deadline_month: "2027-04",
+      deadline_text: "April 30, 2027 at 5:00 PM KST",
+      activity_start_month: "2027-06",
+      activity_end_month: "2027-08",
+      weekly_hours: 10,
+      requirements: ["Current student"],
+      rationale: "This creates a public artifact relevant to the goal.",
+      outputs: ["Public demo"],
+    });
+    expect(calls.at(-1)).toMatchObject({ functionName: "stage_opportunity_from_source", arguments: { activity_start_month: "2027-06", activity_end_month: "2027-08", weekly_hours: 10 } });
   });
 });
 

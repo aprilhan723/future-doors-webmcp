@@ -6,6 +6,7 @@ import { AnimatedBackground, AnimatedGroup, Spotlight, Tilt } from "@/components
 import {
   PATH_START,
   ROUTE_PROOF,
+  ROUTE_PROOFS,
   buildRoutes,
   cloneInitialState,
   downstreamEffect,
@@ -42,7 +43,7 @@ import {
 
 type Modal = "bridge" | "capture" | "tools" | "goal" | "profile" | "why" | "priority" | "proof" | null;
 const stateStorageKey = "future-doors:shared-path:v4";
-const maxPriorities = 2;
+const maxPriorities = 3;
 
 const routeNames: Record<RouteId, { label: string; short: string; reason: string }> = {
   ship: { label: "Build & ship", short: "SHIP", reason: "Fastest proof" },
@@ -54,7 +55,19 @@ const proofLabels: Record<ProofId, string> = {
   delivered_project: "Something people can try",
   public_collaboration: "A public review trail",
   mentor_feedback: "Feedback from a mentor",
+  demonstrated_skill: "A demonstrated skill",
 };
+
+const evidenceCriteria: Array<{ id: ProofId; label: string; detail: string; routes: RouteId[] }> = [
+  { id: "delivered_project", label: "Something people can try", detail: "A prototype, demo, or case study", routes: ["ship"] },
+  { id: "public_collaboration", label: "A public contribution", detail: "A visible collaboration or review trail", routes: ["community"] },
+  { id: "mentor_feedback", label: "Outside feedback", detail: "A mentor, expert, or user review", routes: ["research"] },
+  { id: "demonstrated_skill", label: "A demonstrated skill", detail: "Technical work that shows what you can do", routes: ["ship", "community"] },
+];
+
+function routesForCriteria(criteria: ProofId[]) {
+  return [...new Set(criteria.flatMap((criterion) => evidenceCriteria.find((item) => item.id === criterion)?.routes ?? []))];
+}
 
 function workLinkMeta(artifactUrl: string, proofId: ProofId) {
   try {
@@ -315,7 +328,7 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
       {[
         ["01", "Save an opportunity", "Screenshot or link"],
         ["02", "Check the official source", "Rules and dates"],
-        ["03", "Pin a next move", "Only if you approve"],
+        ["03", "Build your mix", "Only if you approve"],
       ].map(([number, title, detail]) => <motion.li key={number} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} transition={{ duration: .46 }}>
         <i>{number}</i><span className={`clarity-step-icon step-${number}`} aria-hidden="true"><b /></span><div><strong>{title}</strong><small>{detail}</small></div>
       </motion.li>)}
@@ -330,21 +343,25 @@ const simpleRouteDetails: Record<RouteId, { timing: string; signal: string; trac
 };
 
 const routeDisplayOrder: RouteId[] = ["community", "research", "ship"];
-const routeOutcomeLabels: Record<RouteId, string> = {
-  community: "Public collaboration",
-  research: "Mentor feedback",
-  ship: "A shipped product",
+const activityStackLabels: Record<RouteId, { label: string; detail: string }> = {
+  ship: { label: "MAKE", detail: "Things people can try" },
+  community: { label: "CONTRIBUTE", detail: "Public collaboration" },
+  research: { label: "GET FEEDBACK", detail: "Mentored work" },
 };
+
+function activityStackFor(candidate: OpportunityCandidate): RouteId | null {
+  return candidate.pathRouteId ?? getOpportunityRouteOptions(candidate)[0] ?? null;
+}
 
 function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoorsState; routes: Route[]; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void }) {
   const priorities = state.priorities;
   const proposed = new Set(state.priorityProposal.state === "staged" ? state.priorityProposal.routeIds : []);
   const allRoutes = routeDisplayOrder.map((id) => routes.find((item) => item.id === id)).filter((item): item is Route => Boolean(item));
   const unavailable = allRoutes.find((item) => ["ineligible", "expired", "blocked"].includes(item.nodes[0].status));
-  const choices = allRoutes.filter((item) => !["ineligible", "expired", "blocked"].includes(item.nodes[0].status)).slice(0, 2);
+  const choices = allRoutes.filter((item) => !["ineligible", "expired", "blocked"].includes(item.nodes[0].status)).slice(0, 3);
 
-  return <section className="atlas-choice-deck" aria-label="Choose work that can support your future">
-    <header className="atlas-deck-heading"><span><small>02 · CHOOSE A DOOR</small><h2>Choose work that creates proof.</h2></span><b>{priorities.length} of {maxPriorities} pinned</b></header>
+  return <section className="atlas-choice-deck" aria-label="Choose checked opportunities for your evidence dock">
+    <header className="atlas-deck-heading"><span><small>02 · CHECKED DOORS</small><h2>Drag a door into your evidence mix.</h2></span><b>{priorities.length} of {maxPriorities} selected</b></header>
     <div className="atlas-door-list" aria-live="polite">
       {choices.map((item) => {
         const node = item.nodes[0];
@@ -359,7 +376,7 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
           className={`atlas-door-card ${pinned ? "pinned" : ""} ${item.id === state.selectedRouteId ? "focused" : ""}`}
           key={item.id}
           draggable={!pinned && !atLimit}
-          title={!pinned && !atLimit ? "Drag this door to Your Plan, or use Pin to plan." : undefined}
+          title={!pinned && !atLimit ? "Drag this door to the Evidence Dock, or use Add to dock." : undefined}
           onDragStart={(event) => {
             event.dataTransfer.setData("application/x-future-doors-route", item.id);
             event.dataTransfer.setData("text/plain", routeNames[item.id].label);
@@ -370,13 +387,13 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
             <span className={`atlas-door-symbol ${node.status === "checking" ? "checking" : "open"}`} aria-hidden="true"><i /><b /></span>
             <span className="atlas-door-copy"><small>{status}</small><strong>{displayNodeTitle(node)}</strong><em>{detail.description}</em></span>
           </button>
-          <div className="atlas-door-result"><span>Creates evidence</span><strong>{detail.signal}</strong><em>Fits {fit.matches} preferences · supports {impact.count} future{impact.count === 1 ? "" : "s"}</em></div>
-          <button className="atlas-pin" disabled={atLimit} onClick={() => onToggle(item.id)}>{pinned ? "Pinned" : atLimit ? "Plan full" : "Pin to plan"}</button>
+          <div className="atlas-door-result"><span>Adds a signal</span><strong>{detail.signal}</strong><em>Fits {fit.matches} preferences · supports {impact.count} future{impact.count === 1 ? "" : "s"}</em></div>
+          <button className="atlas-pin" disabled={atLimit} onClick={() => onToggle(item.id)}>{pinned ? "In dock" : atLimit ? "Dock full" : "Add to dock"}</button>
         </article>;
       })}
     </div>
     {unavailable ? <a className="atlas-closed-door" href={unavailable.nodes[0].sourceUrl} target="_blank" rel="noreferrer"><span className="atlas-closed-mark" aria-hidden="true">×</span><span><b>One saved door is closed right now</b><small>{displayNodeTitle(unavailable.nodes[0])} · see the official rule</small></span><i>↗</i></a> : null}
-    <footer>Agent checks the source. Drag or pin only the work you want in your plan.</footer>
+    <footer>Agent checks the source. You decide which checked doors make a stronger mix.</footer>
   </section>;
 }
 
@@ -397,10 +414,20 @@ function FutureDeck({ state, cvName, onUpload, onReview, onGoal, onSelectGoal, o
 }
 
 function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRoute }: { state: FutureDoorsState; routes: Route[]; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onProof: (proofId: ProofId) => void; onDropRoute: (id: RouteId) => void }) {
-  const planned = new Set(state.priorities.map((id) => ROUTE_PROOF[id]));
+  const planned = new Set(state.priorities.flatMap((id) => ROUTE_PROOFS[id]));
   const linked = new Set(state.proofReceipts.map((receipt) => receipt.proofId));
   const selectedGoal = state.goals.find((goal) => goal.id === state.selectedGoalId) ?? state.goals[0];
   const activeFutures = state.goals.filter((goal) => state.priorities.some((routeId) => goal.supportedRoutes.includes(routeId)));
+  const connectedCards = state.opportunities.filter((candidate) => candidate.state === "connected" && candidate.pathRouteId);
+  const cardsForRoute = (routeId: RouteId) => connectedCards.filter((candidate) => candidate.pathRouteId === routeId);
+  const weeklyCapacity = state.profile.preferences.timeCommitment === "Up to 10 hrs / week" ? 10 : state.profile.preferences.timeCommitment === "Up to 20 hrs / week" ? 20 : null;
+  const scheduleConflict = weeklyCapacity === null ? null : connectedCards.flatMap((candidate, index) => connectedCards.slice(index + 1).map((other) => ({ candidate, other }))).find(({ candidate, other }) => {
+    if (!candidate.activityStartMonth || !other.activityStartMonth || !candidate.weeklyHours || !other.weeklyHours) return false;
+    const candidateEnd = candidate.activityEndMonth ?? candidate.activityStartMonth;
+    const otherEnd = other.activityEndMonth ?? other.activityStartMonth;
+    return candidate.activityStartMonth <= otherEnd && other.activityStartMonth <= candidateEnd && candidate.weeklyHours + other.weeklyHours > weeklyCapacity;
+  });
+  const prerequisiteCard = connectedCards.find((candidate) => candidate.prerequisite);
   const canAddAnother = state.priorities.length < maxPriorities;
   const [draggingOver, setDraggingOver] = useState(false);
   const dropRoute = (event: DragEvent<HTMLElement>) => {
@@ -410,28 +437,34 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRou
     const routeId = event.dataTransfer.getData("application/x-future-doors-route");
     if (routeId === "ship" || routeId === "community" || routeId === "research") onDropRoute(routeId);
   };
-  return <aside className="atlas-plan-deck" aria-label="What your choices open">
-    <header className="atlas-deck-heading"><span><small>03 · YOUR PLAN</small><h2>See what your choices add up to.</h2></span><b>{state.priorities.length} pinned</b></header>
+  const criteria = selectedGoal.evidenceCriteria;
+  const covered = criteria.filter((proofId) => planned.has(proofId) || linked.has(proofId)).length;
+  return <aside className="atlas-plan-deck" aria-label="Your evidence dock">
+    <header className="atlas-deck-heading"><span><small>03 · EVIDENCE DOCK</small><h2>Your evidence mix.</h2></span><b>{covered}/{criteria.length} covered</b></header>
     <section className="atlas-target"><small>YOUR SELECTED FUTURE</small><strong>{selectedGoal.title}</strong><span>Target · {selectedGoal.targetYear}</span></section>
-    <section className={`atlas-pins ${draggingOver ? "drop-ready" : ""}`} aria-label="Pinned next moves" onDragOver={(event) => { if (!canAddAnother) return; event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDraggingOver(true); }} onDragLeave={() => setDraggingOver(false)} onDrop={dropRoute}><small>{draggingOver ? "DROP TO ADD THIS DOOR" : canAddAnother ? "YOUR NEXT MOVES · DRAG A DOOR HERE" : "YOUR NEXT MOVES · PLAN FULL"}</small>
+    <section className={`atlas-pins ${draggingOver ? "drop-ready" : ""}`} aria-label="Chosen evidence cards" onDragOver={(event) => { if (!canAddAnother) return; event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDraggingOver(true); }} onDragLeave={() => setDraggingOver(false)} onDrop={dropRoute}><small>{draggingOver ? "DROP TO ADD THIS CARD" : canAddAnother ? `YOUR MIX · ${connectedCards.length} SAVED CARD${connectedCards.length === 1 ? "" : "S"}` : "YOUR MIX · DOCK FULL"}</small>
       {state.priorities.length ? state.priorities.map((id, index) => {
         const route = routes.find((item) => item.id === id);
         const proofId = ROUTE_PROOF[id];
         const hasLink = linked.has(proofId);
+        const sourceCards = cardsForRoute(id);
+        const primarySourceCard = sourceCards[0];
         return <motion.article key={id} layout>
-          <button onClick={() => onRoute(id)}><i>{index + 1}</i><span><strong>{route?.nodes[0] ? displayNodeTitle(route.nodes[0]) : routeNames[id].label}</strong><em>Creates {simpleRouteDetails[id].signal}</em></span></button>
-          <button className="atlas-proof-link" onClick={() => onProof(proofId)}>{hasLink ? "Work link" : "Add proof"}</button>
+          <button onClick={() => onRoute(id)}><i>{index + 1}</i><span><strong>{primarySourceCard?.title ?? (route?.nodes[0] ? displayNodeTitle(route.nodes[0]) : routeNames[id].label)}</strong><em>{primarySourceCard ? `${sourceCards.length} saved card${sourceCards.length === 1 ? "" : "s"} · official source checked` : `Covers ${simpleRouteDetails[id].signal}`}</em></span></button>
+          <button className="atlas-proof-link" onClick={() => onProof(proofId)}>{hasLink ? "Work link" : "Add link"}</button>
           <button className="atlas-remove" onClick={() => onTogglePriority(id)} aria-label={`Remove ${routeNames[id].label}`}>×</button>
         </motion.article>;
-      }) : <div className="atlas-empty-plan"><b>Nothing is pinned yet.</b><span>Choose up to two doors in the middle.</span></div>}
+      }) : <div className="atlas-empty-plan"><b>Your dock is empty.</b><span>Combine up to three checked doors from the middle.</span></div>}
+      {scheduleConflict ? <div className="atlas-plan-warning"><b>Scheduling check</b><span>{scheduleConflict.candidate.title} + {scheduleConflict.other.title} exceed your {weeklyCapacity}-hour limit where their official activity windows overlap.</span></div> : prerequisiteCard ? <div className="atlas-plan-warning"><b>Do this first</b><span>{prerequisiteCard.prerequisite}</span></div> : null}
     </section>
-    <section className="atlas-proof-map" aria-label="Evidence this plan can create"><small>EVIDENCE THIS PLAN BUILDS</small>
-      {(Object.entries(proofLabels) as [ProofId, string][]).map(([proofId, label]) => {
+    <section className="atlas-proof-map" aria-label="Evidence criteria covered by this plan"><small>YOUR GOAL&apos;S EVIDENCE CRITERIA</small>
+      {criteria.map((proofId) => {
+        const label = proofLabels[proofId];
         const status = linked.has(proofId) ? "linked" : planned.has(proofId) ? "planned" : "missing";
         return <button className={status} key={proofId} disabled={status === "missing"} onClick={() => onProof(proofId)}><i>{status === "linked" ? "✓" : status === "planned" ? "●" : "○"}</i><span>{label}</span></button>;
       })}
     </section>
-    <footer><b>You approve every change.</b><span>{state.priorities.length ? `Reusable across ${activeFutures.length} of your ${state.goals.length} futures.` : "The agent never picks for you."}</span></footer>
+    <footer><b>You approve every change.</b><span>{state.priorities.length ? `${connectedCards.length ? `${connectedCards.length} saved card${connectedCards.length === 1 ? "" : "s"} in this mix · ` : ""}covers ${covered} of ${criteria.length} signals across ${activeFutures.length} future${activeFutures.length === 1 ? "" : "s"}.` : "The agent never chooses or claims you are competitive."}</span></footer>
   </aside>;
 }
 
@@ -482,14 +515,14 @@ function ProfileModal({ profile, cvName, proposed, onSave, onClose }: { profile:
   </ModalFrame>;
 }
 
-function GoalModal({ profile, careerGoal, mode, onSave, onClose }: { profile: Profile; careerGoal?: FutureDoorsState["goals"][number]; mode: "edit" | "add"; onSave: (goal: string, year: number, gap: string, supportedRoutes: RouteId[]) => void; onClose: () => void }) {
+function GoalModal({ profile, careerGoal, mode, onSave, onClose }: { profile: Profile; careerGoal?: FutureDoorsState["goals"][number]; mode: "edit" | "add"; onSave: (goal: string, year: number, gap: string, criteria: ProofId[]) => void; onClose: () => void }) {
   const adding = mode === "add";
   const [goal, setGoal] = useState(adding ? "" : profile.goal);
   const [year, setYear] = useState(adding ? Math.max(2027, profile.targetYear) : profile.targetYear);
   const [gap, setGap] = useState(adding ? "A visible proof of work" : profile.gap);
-  const [supportedRoutes, setSupportedRoutes] = useState<RouteId[]>(adding ? ["ship", "community", "research"] : careerGoal?.supportedRoutes ?? ["ship", "community", "research"]);
-  const toggleSupport = (routeId: RouteId) => setSupportedRoutes((current) => current.includes(routeId) ? current.length > 1 ? current.filter((id) => id !== routeId) : current : [...current, routeId]);
-  return <ModalFrame label={adding ? "ADD A DIRECTION" : "SET A DIRECTION"} title={adding ? "Keep another future open" : "Where should this path lead?"} onClose={onClose} className="goal-modal"><div className="modal-fields"><label className="wide">Direction<input autoFocus placeholder="For example, Sustainability product builder" value={goal} onChange={(e) => setGoal(e.target.value)} /></label><label>Target year<input type="number" min="2027" max="2040" value={year} onChange={(e) => setYear(Number(e.target.value) || profile.targetYear)} /></label><label className="wide">What would show progress?<input value={gap} onChange={(e) => setGap(e.target.value)} /></label><fieldset className="wide goal-support"><legend>What kind of work can help this future?</legend><span>Choose at least one. This controls the reusable-work map, not a success prediction.</span><div>{routeDisplayOrder.map((routeId) => <button type="button" key={routeId} className={supportedRoutes.includes(routeId) ? "selected" : ""} onClick={() => toggleSupport(routeId)}><i>{supportedRoutes.includes(routeId) ? "✓" : ""}</i>{routeOutcomeLabels[routeId]}</button>)}</div></fieldset></div><p className="modal-note">You can keep up to four directions. This plan shows useful evidence, never a hiring or acceptance prediction.</p><footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(goal.trim() || (adding ? "New direction" : profile.goal), Math.min(2040, Math.max(2027, year)), gap.trim() || "A visible proof of work", supportedRoutes)}>{adding ? "ADD TO MY GOALS" : "REBUILD PATH"}</button></footer></ModalFrame>;
+  const [criteria, setCriteria] = useState<ProofId[]>(adding ? evidenceCriteria.map((item) => item.id) : careerGoal?.evidenceCriteria ?? evidenceCriteria.map((item) => item.id));
+  const toggleCriterion = (criterion: ProofId) => setCriteria((current) => current.includes(criterion) ? current.length > 1 ? current.filter((id) => id !== criterion) : current : [...current, criterion]);
+  return <ModalFrame label={adding ? "ADD A DIRECTION" : "SET A DIRECTION"} title={adding ? "Keep another future open" : "Where should this path lead?"} onClose={onClose} className="goal-modal"><div className="modal-fields"><label className="wide">Direction<input autoFocus placeholder="For example, Sustainability product builder" value={goal} onChange={(e) => setGoal(e.target.value)} /></label><label>Target year<input type="number" min="2027" max="2040" value={year} onChange={(e) => setYear(Number(e.target.value) || profile.targetYear)} /></label><label className="wide">What would show progress?<input value={gap} onChange={(e) => setGap(e.target.value)} /></label><fieldset className="wide goal-support"><legend>What should this future have evidence of?</legend><span>Pick the signals that matter. Your saved cards will show which gaps they cover — never a success prediction.</span><div>{evidenceCriteria.map((criterion) => <button type="button" key={criterion.id} className={criteria.includes(criterion.id) ? "selected" : ""} onClick={() => toggleCriterion(criterion.id)} title={criterion.detail}><i>{criteria.includes(criterion.id) ? "✓" : ""}</i>{criterion.label}</button>)}</div></fieldset></div><p className="modal-note">You can keep up to four directions. Drag source-checked cards into the Evidence Dock to build a mix around these signals.</p><footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(goal.trim() || (adding ? "New direction" : profile.goal), Math.min(2040, Math.max(2027, year)), gap.trim() || "A visible proof of work", criteria)}>{adding ? "ADD TO MY GOALS" : "REBUILD DOCK"}</button></footer></ModalFrame>;
 }
 
 function BridgeModal({ state, onApprove, onClose }: { state: FutureDoorsState; onApprove: () => void; onClose: () => void }) {
@@ -532,6 +565,11 @@ function CaptureModal({ candidates, selectedId, profile, priorities, onSelect, o
   const [copied, setCopied] = useState(false);
   const sortedCandidates = sortSavedOpportunities(candidates);
   const candidate = sortedCandidates.find((item) => item.id === selectedId) ?? sortedCandidates[0];
+  const activityStacks = routeDisplayOrder.map((routeId) => ({
+    routeId,
+    candidates: sortedCandidates.filter((item) => activityStackFor(item) === routeId),
+  })).filter((stack) => stack.candidates.length);
+  const unfiledCandidates = sortedCandidates.filter((item) => !activityStackFor(item));
   const capturePrompt = "Find the official page for this. Check the rule against my profile, then stage it in Future Doors for my review.";
   const copyCapturePrompt = async () => {
     let didCopy = false;
@@ -552,7 +590,7 @@ function CaptureModal({ candidates, selectedId, profile, priorities, onSelect, o
     setCopied(didCopy);
   };
   if (!candidate) return <ModalFrame label="YOUR OPPORTUNITY SCRAPBOOK" title="Save a post. See what it opens." onClose={onClose} className="capture-modal">
-    <div className="capture-steps"><span><b>1</b><strong>Save the post</strong><small>Share the screenshot or link you would normally lose in a camera roll.</small></span><i>→</i><span><b>2</b><strong>Check the real source</strong><small>The agent finds the official page, deadline, and rules.</small></span><i>→</i><span><b>3</b><strong>Pin what fits</strong><small>You decide if it belongs on one of your future plans.</small></span></div>
+    <div className="capture-steps"><span><b>1</b><strong>Save the post</strong><small>Share the screenshot or link you would normally lose in a camera roll.</small></span><i>→</i><span><b>2</b><strong>Check the real source</strong><small>The agent finds the official page, deadline, and rules.</small></span><i>→</i><span><b>3</b><strong>Build your mix</strong><small>You choose source-checked cards for your future plans.</small></span></div>
     <div className="capture-prompt"><small>ONE NEXT ACTION · SEND THIS WITH YOUR SCREENSHOT</small><p>“{capturePrompt}”</p><button onClick={copyCapturePrompt}>{copied ? "COPIED ✓" : "COPY MESSAGE"}</button></div>
     <footer><span>Posts are clues. Only official pages set dates and requirements.</span><button onClick={onClose}>DONE</button></footer>
   </ModalFrame>;
@@ -561,10 +599,12 @@ function CaptureModal({ candidates, selectedId, profile, priorities, onSelect, o
   const routeOptions = getOpportunityRouteOptions(candidate);
   const selectedRoute = routeChoice && routeOptions.includes(routeChoice) ? routeChoice : routeOptions[0];
   const willPinSelectedRoute = Boolean(selectedRoute && !priorities.includes(selectedRoute) && priorities.length < maxPriorities);
-  return <ModalFrame label={`YOUR SCRAPBOOK · ${candidates.length}/7 · BY DEADLINE`} title="Keep the posts worth acting on" onClose={onClose} className="capture-modal inbox-modal">
+  const activityTiming = candidate.activityStartMonth ? `${formatMonth(candidate.activityStartMonth)}${candidate.activityEndMonth && candidate.activityEndMonth !== candidate.activityStartMonth ? `–${formatMonth(candidate.activityEndMonth)}` : ""}` : null;
+  return <ModalFrame label={`YOUR SCRAPBOOK · ${candidates.length}/7 · BY DEADLINE`} title="Build a balanced activity mix" onClose={onClose} className="capture-modal inbox-modal">
     <div className="inbox-layout">
       <nav className="inbox-list" aria-label="Saved opportunities">
-        {sortedCandidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>DUE · {item.deadlineText}</span></button>; })}
+        {activityStacks.map((stack) => <section className="inbox-stack" key={stack.routeId}><header><span>{activityStackLabels[stack.routeId].label}</span><b>{stack.candidates.length}</b></header><small>{activityStackLabels[stack.routeId].detail}</small><div>{stack.candidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>DUE · {item.deadlineText}</span></button>; })}</div></section>)}
+        {unfiledCandidates.length ? <section className="inbox-stack unfiled"><header><span>KEEP CHECKING</span><b>{unfiledCandidates.length}</b></header><small>Needs a clearer output first</small><div>{unfiledCandidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>DUE · {item.deadlineText}</span></button>; })}</div></section> : null}
       </nav>
       <section className="candidate-review">
         <div className={`candidate-banner ${review.status}`}><small>{review.label}</small><strong>{candidate.title}</strong><span>{candidate.deadlineText}</span></div>
@@ -574,8 +614,8 @@ function CaptureModal({ candidates, selectedId, profile, priorities, onSelect, o
         </div>
         {candidate.missingFact ? <div className="one-question"><small>ONE THING WE STILL NEED</small><strong>{candidate.missingFact}</strong><span>Answer this in ChatGPT. The agent will update this same card.</span></div> : null}
         {candidate.prerequisite ? <div className="first-step"><small>DO THIS FIRST</small><strong>{candidate.prerequisite}</strong></div> : null}
-        <div className="candidate-output"><small>WHAT YOU CAN GET</small>{candidate.outputs.map((item) => <span key={item}>✓ {item}</span>)}</div>
-        {review.status === "ready" && selectedRoute ? <div className="candidate-route-choice"><small>YOU CHOOSE WHAT THIS SUPPORTS</small><p>The agent checked the source. You decide which future plan this work belongs to.</p><div>{routeOptions.map((routeId) => <button key={routeId} className={selectedRoute === routeId ? "active" : ""} onClick={() => setRouteChoice(routeId)}><b>{routeNames[routeId].short}</b><span>{routeNames[routeId].label}</span></button>)}</div><em>{willPinSelectedRoute ? "This also pins the route in your plan." : priorities.includes(selectedRoute) ? "Already pinned in your plan." : "Your two plan pins stay unchanged."}</em></div> : null}
+        <div className="candidate-output"><small>WHAT YOU CAN GET</small>{candidate.outputs.map((item) => <span key={item}>✓ {item}</span>)}{activityTiming ? <span className="source-schedule">◷ {activityTiming}{candidate.weeklyHours ? ` · ${candidate.weeklyHours} hrs / week` : ""}</span> : null}</div>
+        {review.status === "ready" && selectedRoute ? <div className="candidate-route-choice"><small>YOU CHOOSE WHAT THIS SUPPORTS</small><p>The agent checked the source. You decide which future plan this work belongs to.</p><div>{routeOptions.map((routeId) => <button key={routeId} className={selectedRoute === routeId ? "active" : ""} onClick={() => setRouteChoice(routeId)}><b>{routeNames[routeId].short}</b><span>{routeNames[routeId].label}</span></button>)}</div><em>{willPinSelectedRoute ? "This also adds the card to your Evidence Dock." : priorities.includes(selectedRoute) ? "Already in your Evidence Dock." : "Your selected cards stay unchanged."}</em></div> : null}
         <div className="checked-line">Checked {candidate.checkedAt} · using {profile.name}&apos;s confirmed facts</div>
       </section>
     </div>
@@ -727,7 +767,7 @@ export default function FutureDoors() {
     return { status: "staged", routeIds, humanApprovalRequired: true };
   }, [commit]);
   const stageProofReceipt = useCallback((proposal: Parameters<FutureDoorsActions["stageProofReceipt"]>[0]) => {
-    const routeId = (Object.entries(ROUTE_PROOF) as [RouteId, ProofId][]).find(([, proofId]) => proofId === proposal.proofId)?.[0];
+    const routeId = stateRef.current.priorities.find((candidate) => ROUTE_PROOFS[candidate].includes(proposal.proofId));
     if (!routeId || !stateRef.current.priorities.includes(routeId)) throw new Error("[PROOF_NOT_PLANNED] Pin the opportunity that creates this proof before attaching an artifact.");
     commit("agent", "Proof receipt staged", proposal.title, (current) => ({ ...current, proofProposal: { state: "staged", ...proposal } }), { toolName: "stage_proof_receipt", source: proposal.sourceLabel, stateDiff: `${proposal.proofId} PLANNED → waiting for approval` });
     setSelectedProofId(proposal.proofId); setModal("proof");
@@ -754,7 +794,10 @@ export default function FutureDoors() {
       const removing = current.priorities.includes(id);
       const next = removing ? current.priorities.filter((item) => item !== id) : current.priorities.length < maxPriorities ? [...current.priorities, id] : current.priorities;
       const focusedNode = buildRoutes(current).find((item) => item.id === id)?.nodes[0];
-      return { ...current, priorities: next, selectedRouteId: removing || !focusedNode ? current.selectedRouteId : id, selectedNodeId: removing || !focusedNode ? current.selectedNodeId : focusedNode.id, priorityProposal: { state: "none", routeIds: [], rationale: "" } };
+      const opportunities = removing
+        ? current.opportunities.map((candidate) => candidate.pathRouteId === id ? { ...candidate, state: "review" as const, pathRouteId: undefined } : candidate)
+        : current.opportunities;
+      return { ...current, opportunities, priorities: next, selectedRouteId: removing || !focusedNode ? current.selectedRouteId : id, selectedNodeId: removing || !focusedNode ? current.selectedNodeId : focusedNode.id, priorityProposal: { state: "none", routeIds: [], rationale: "" } };
     });
   }, [commit]);
 
@@ -777,12 +820,12 @@ export default function FutureDoors() {
   const selectedNode = getSelectedNode(state);
   const dismissIntro = useCallback(() => setIntroVisible(false), []);
 
-  const saveGoal = (goal: string, targetYear: number, gap: string, supportedRoutes: RouteId[]) => { commit("you", "Goal updated", `${goal} · ${targetYear}`, (current) => { const goals = current.goals.map((item) => item.id === current.selectedGoalId ? { ...item, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap, supportedRoutes } : item); const updated = { ...current, goals, profile: { ...current.profile, goal, targetYear, gap }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setModal(null); };
-  const addCareerGoal = (goal: string, targetYear: number, gap: string, supportedRoutes: RouteId[]) => { commit("you", "Career goal added", `${goal} · ${targetYear}`, (current) => {
+  const saveGoal = (goal: string, targetYear: number, gap: string, evidenceCriteria: ProofId[]) => { commit("you", "Goal updated", `${goal} · ${targetYear}`, (current) => { const goals = current.goals.map((item) => item.id === current.selectedGoalId ? { ...item, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap, evidenceCriteria, supportedRoutes: routesForCriteria(evidenceCriteria) } : item); const updated = { ...current, goals, profile: { ...current.profile, goal, targetYear, gap }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } }; const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader); return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 }; }); setModal(null); };
+  const addCareerGoal = (goal: string, targetYear: number, gap: string, evidenceCriteria: ProofId[]) => { commit("you", "Career goal added", `${goal} · ${targetYear}`, (current) => {
     if (current.goals.length >= 4) return current;
     const slug = goal.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 28) || "direction";
     const id = `${slug}-${Date.now().toString(36)}`;
-    const nextGoal = { id, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap, supportedRoutes };
+    const nextGoal = { id, title: goal, shortLabel: goal.slice(0, 22), targetYear, gap, evidenceCriteria, supportedRoutes: routesForCriteria(evidenceCriteria) };
     const updated = { ...current, goals: [...current.goals, nextGoal], selectedGoalId: id, profile: { ...current.profile, goal, targetYear, gap }, scenario: "baseline" as const, bridge: { ...current.bridge, state: "none" as const } };
     const best = buildRoutes(updated).reduce((leader, item) => item.fit > leader.fit ? item : leader);
     return { ...updated, selectedRouteId: best.id, selectedNodeId: best.nodes[0].id, replayToken: current.replayToken + 1 };
@@ -795,11 +838,12 @@ export default function FutureDoors() {
     const review = reviewOpportunity(candidate);
     if (!review.canConnect || review.status === "needs_fact") throw new Error("[OPPORTUNITY_NOT_READY] Answer the missing detail or choose an opportunity that helps the next step.");
     if (!getOpportunityRouteOptions(candidate).includes(routeId)) throw new Error("[UNSUPPORTED_PLAN] Choose one of the plans this source-backed work can support.");
+    if (!stateRef.current.priorities.includes(routeId) && stateRef.current.priorities.length >= maxPriorities) throw new Error("[DOCK_FULL] Remove one selected card before adding this source-backed card to a different plan.");
     commit("you", "Opportunity added to plan", `${candidate.title} → ${routeNames[routeId].label}`, (current) => {
       const opportunities = current.opportunities.map((item) => item.id === id
         ? { ...item, state: "connected" as const, pathRouteId: routeId }
-        : { ...item, state: "review" as const, pathRouteId: undefined });
-      const priorities = current.priorities.includes(routeId) || current.priorities.length >= maxPriorities ? current.priorities : [...current.priorities, routeId];
+        : item);
+      const priorities = current.priorities.includes(routeId) ? current.priorities : [...current.priorities, routeId];
       const next: FutureDoorsState = { ...current, opportunities, priorities, scenario: "baseline", bridge: { ...current.bridge, state: "none" }, replayToken: current.replayToken + 1 };
       const firstNode = buildRoutes(next).find((route) => route.id === routeId)?.nodes[0];
       return { ...next, selectedRouteId: routeId, selectedNodeId: firstNode?.id ?? next.selectedNodeId };

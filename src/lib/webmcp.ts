@@ -47,6 +47,9 @@ export type FutureDoorsActions = {
     sourceClause: string;
     deadlineMonth: string;
     deadlineText: string;
+    activityStartMonth?: string;
+    activityEndMonth?: string;
+    weeklyHours?: number;
     requirements: string[];
     missingFact?: string;
     prerequisite?: string;
@@ -157,6 +160,13 @@ function optionalString(input: Record<string, unknown>, key: string, min: number
   return requireString(input, key, min, max);
 }
 
+function optionalInteger(input: Record<string, unknown>, key: string, min: number, max: number) {
+  const value = input[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) throw new WebMcpToolError("INVALID_INTEGER", `${key} must be a whole number from ${min} to ${max}.`);
+  return value;
+}
+
 function optionalStringArray(input: Record<string, unknown>, key: string, maxItems: number) {
   if (input[key] === undefined) return undefined;
   return requireStringArray(input, key, 1, maxItems);
@@ -172,8 +182,8 @@ function optionalAge(input: Record<string, unknown>) {
 
 function requireRouteArray(input: Record<string, unknown>, key: string) {
   const raw = input[key];
-  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 2) {
-    throw new WebMcpToolError("INVALID_ARGUMENT", `"${key}" must contain one or two route ids.`);
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 3) {
+    throw new WebMcpToolError("INVALID_ARGUMENT", `"${key}" must contain one to three route ids.`);
   }
   const routeIds = raw.map(requireRouteId);
   if (new Set(routeIds).size !== routeIds.length) {
@@ -270,7 +280,7 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
     {
       name: "stage_opportunity_from_source",
       title: "Save an opportunity from a screenshot",
-      description: "After inspecting a screenshot, find the original official HTTPS page and add or update one saved opportunity for human review. Include the exact deadline, relevant rules, and one unresolved fact. Never connect it to the path automatically.",
+      description: "After inspecting a screenshot, find the original official HTTPS page and add or update one saved opportunity for human review. Include the exact deadline, relevant rules, and one unresolved fact. When the official page states them, include the activity window and weekly hours so the person can spot real scheduling conflicts. Never connect it to the path automatically.",
       inputSchema: objectSchema({
         title: { type: "string", minLength: 3, maxLength: 100, description: "Official opportunity or program title." },
         source_label: { type: "string", minLength: 3, maxLength: 120, description: "Short label for the original official page." },
@@ -278,6 +288,9 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
         source_clause: { type: "string", minLength: 12, maxLength: 500, description: "Concise official clause supporting the deadline or eligibility rule." },
         deadline_month: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$", description: `Verified deadline month from ${PATH_START} through ${PATH_END}.` },
         deadline_text: { type: "string", minLength: 3, maxLength: 100, description: "Exact official deadline with time zone, or say when the time is not stated." },
+        activity_start_month: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$", description: "Only when the official page states the activity begins in this month. Do not estimate." },
+        activity_end_month: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$", description: "Only when the official page states the activity ends in this month. Do not estimate." },
+        weekly_hours: { type: "integer", minimum: 1, maximum: 168, description: "Only an official stated weekly time requirement. Do not estimate." },
         requirements: { type: "array", minItems: 1, maxItems: 4, items: { type: "string", minLength: 2, maxLength: 60 }, description: "One to four official requirements that matter for this person." },
         missing_fact: { type: "string", minLength: 3, maxLength: 120, description: "One fact to ask the person when eligibility cannot yet be confirmed." },
         prerequisite: { type: "string", minLength: 3, maxLength: 100, description: "One required exam, certificate, or step that must happen before applying." },
@@ -292,6 +305,9 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
         sourceClause: requireString(input, "source_clause", 12, 500),
         deadlineMonth: requirePathMonth(input.deadline_month),
         deadlineText: requireString(input, "deadline_text", 3, 100),
+        activityStartMonth: input.activity_start_month === undefined ? undefined : requirePathMonth(input.activity_start_month),
+        activityEndMonth: input.activity_end_month === undefined ? undefined : requirePathMonth(input.activity_end_month),
+        weeklyHours: optionalInteger(input, "weekly_hours", 1, 168),
         requirements: requireStringArray(input, "requirements", 1, 4),
         missingFact: optionalString(input, "missing_fact", 3, 120),
         prerequisite: optionalString(input, "prerequisite", 3, 100),
@@ -370,9 +386,9 @@ export function createFutureDoorsTools(actions: FutureDoorsActions): SiteTool[] 
     {
       name: "stage_priority_plan",
       title: "Stage priority opportunities",
-      description: "Propose one or two routes that best fill the person's current proof gaps. Show the proposal in the shared page, but never pin or reorder a route until the person approves it.",
+      description: "Propose one to three routes that fill distinct evidence gaps. Show the proposal in the shared page, but never add, remove, or reorder a card until the person approves it.",
       inputSchema: objectSchema({
-        route_ids: { type: "array", minItems: 1, maxItems: 2, items: routeSchema, description: "One or two exact route ids from get_path_snapshot, in priority order." },
+        route_ids: { type: "array", minItems: 1, maxItems: 3, items: routeSchema, description: "One to three exact route ids from get_path_snapshot, in priority order." },
         rationale: { type: "string", minLength: 12, maxLength: 240, description: "Why these routes fill distinct proof gaps within the person's constraints." },
       }, ["route_ids", "rationale"]),
       annotations: { untrustedContentHint: true },

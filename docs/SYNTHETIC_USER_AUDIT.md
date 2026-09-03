@@ -11,7 +11,7 @@ A separate 36-person synthetic panel covered students, job seekers, internationa
 The follow-up changed the central board accordingly:
 
 - One opportunity and the work it could add now share a row.
-- A person can pin no more than two routes at once.
+- A person can combine no more than three checked routes at once.
 - A selected row becomes solid and a missing work type stays dotted, with text labels in addition to color and line style.
 - The target says “needed work types on the board” and “This tracks work, not odds” so the count cannot be mistaken for a success probability.
 - The mobile layout groups each opportunity with its matching work type instead of shrinking the desktop canvas.

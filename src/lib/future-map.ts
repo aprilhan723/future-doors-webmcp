@@ -1,6 +1,6 @@
 export type Actor = "you" | "agent" | "system";
 export type RouteId = "ship" | "research" | "community";
-export type ProofId = "delivered_project" | "public_collaboration" | "mentor_feedback";
+export type ProofId = "delivered_project" | "public_collaboration" | "mentor_feedback" | "demonstrated_skill";
 export type Scenario = "baseline" | "take" | "miss" | "rerouted";
 export type NodeKind = "opportunity" | "evidence" | "bridge" | "destination";
 export type NodeStatus =
@@ -98,6 +98,7 @@ export type CareerGoal = {
   targetYear: number;
   gap: string;
   supportedRoutes: RouteId[];
+  evidenceCriteria: ProofId[];
 };
 
 export type BridgeProposal = {
@@ -125,6 +126,11 @@ export type OpportunityCandidate = {
   sourceClause: string;
   deadlineMonth: string;
   deadlineText: string;
+  // These are optional because many official pages only publish an application
+  // deadline. Future Doors never invents a work window or time requirement.
+  activityStartMonth?: string;
+  activityEndMonth?: string;
+  weeklyHours?: number;
   requirements: string[];
   missingFact?: string;
   prerequisite?: string;
@@ -193,8 +199,13 @@ export type FutureDoorsState = {
 export const PATH_START = "2026-08";
 export const PATH_END = "2040-12";
 export const ROUTE_IDS = ["ship", "community", "research"] as const;
-export const PROOF_IDS = ["delivered_project", "public_collaboration", "mentor_feedback"] as const;
+export const PROOF_IDS = ["delivered_project", "public_collaboration", "mentor_feedback", "demonstrated_skill"] as const;
 export const ROUTE_PROOF: Record<RouteId, ProofId> = { ship: "delivered_project", community: "public_collaboration", research: "mentor_feedback" };
+export const ROUTE_PROOFS: Record<RouteId, ProofId[]> = {
+  ship: ["delivered_project", "demonstrated_skill"],
+  community: ["public_collaboration", "demonstrated_skill"],
+  research: ["mentor_feedback"],
+};
 export const DOOR_IDS = ["ship-challenge"] as const;
 
 export class PathInputError extends Error {
@@ -282,9 +293,9 @@ export const initialState: FutureDoorsState = {
     },
   },
   goals: [
-    { id: "ai-product", title: "AI Product Builder", shortLabel: "AI products", targetYear: 2030, gap: "Public work and mentor feedback", supportedRoutes: ["ship", "community", "research"] },
-    { id: "hardware-story", title: "Semiconductor Product Storyteller", shortLabel: "Hardware", targetYear: 2030, gap: "Technical proof people can understand", supportedRoutes: ["community", "research"] },
-    { id: "learning-founder", title: "Global Learning Product Founder", shortLabel: "Learning", targetYear: 2030, gap: "A product case study with learner feedback", supportedRoutes: ["ship", "community"] },
+    { id: "ai-product", title: "AI Product Builder", shortLabel: "AI products", targetYear: 2030, gap: "Public work and mentor feedback", supportedRoutes: ["ship", "community", "research"], evidenceCriteria: ["delivered_project", "public_collaboration", "mentor_feedback", "demonstrated_skill"] },
+    { id: "hardware-story", title: "Semiconductor Product Storyteller", shortLabel: "Hardware", targetYear: 2030, gap: "Technical proof people can understand", supportedRoutes: ["community", "research"], evidenceCriteria: ["public_collaboration", "mentor_feedback", "demonstrated_skill"] },
+    { id: "learning-founder", title: "Global Learning Product Founder", shortLabel: "Learning", targetYear: 2030, gap: "A product case study with learner feedback", supportedRoutes: ["ship", "community"], evidenceCriteria: ["delivered_project", "public_collaboration", "mentor_feedback"] },
   ],
   selectedGoalId: "ai-product",
   selectedMonth: "2026-08",
@@ -843,7 +854,7 @@ export function summarizeState(state: FutureDoorsState) {
   const routes = buildRoutes(state);
   const selected = getSelectedNode(state);
   const selectedRoute = routes.find((route) => route.id === state.selectedRouteId) ?? routes[0];
-  const plannedProof = new Set(state.priorities.map((routeId) => ROUTE_PROOF[routeId]));
+  const plannedProof = new Set(state.priorities.flatMap((routeId) => ROUTE_PROOFS[routeId]));
   const attachedProof = new Set(state.proofReceipts.map((receipt) => receipt.proofId));
   return {
     product: "Future Doors",
@@ -974,6 +985,9 @@ function sanitizeCareerGoals(value: unknown, fallback: CareerGoal[]) {
     const supportedRoutes: RouteId[] = Array.isArray(raw.supportedRoutes)
       ? raw.supportedRoutes.filter((route): route is RouteId => route === "ship" || route === "community" || route === "research").filter((route, index, all) => all.indexOf(route) === index)
       : ["ship", "community", "research"];
+    const evidenceCriteria: ProofId[] = Array.isArray(raw.evidenceCriteria)
+      ? raw.evidenceCriteria.filter((proof): proof is ProofId => PROOF_IDS.includes(proof as ProofId)).filter((proof, index, all) => all.indexOf(proof) === index)
+      : (supportedRoutes.length ? supportedRoutes.flatMap((routeId) => ROUTE_PROOFS[routeId]) : PROOF_IDS).filter((proof, index, all) => all.indexOf(proof) === index);
     return [{
       id,
       title: safeText(raw.title, "Career goal", 80),
@@ -981,6 +995,7 @@ function sanitizeCareerGoals(value: unknown, fallback: CareerGoal[]) {
       targetYear: Number.isInteger(raw.targetYear) ? Math.min(2040, Math.max(2027, Number(raw.targetYear))) : 2030,
       gap: safeText(raw.gap, "A visible proof of work", 100),
       supportedRoutes: supportedRoutes.length ? supportedRoutes : ["ship", "community", "research"],
+      evidenceCriteria: evidenceCriteria.length ? evidenceCriteria : [...PROOF_IDS],
     }];
   }).filter((goal, index, all) => all.findIndex((candidate) => candidate.id === goal.id) === index).slice(0, 4);
   return goals.length ? goals : fallback;
@@ -1010,7 +1025,7 @@ export function sanitizePersistedState(value: unknown): FutureDoorsState {
   try { selectedRouteId = requireRouteId(value.selectedRouteId); } catch { /* Keep the safe baseline route. */ }
   const scenario: Scenario = "baseline";
   const priorities = Array.isArray(value.priorities)
-    ? value.priorities.filter((id): id is RouteId => id === "ship" || id === "community" || id === "research").filter((id, index, all) => all.indexOf(id) === index).slice(0, 2)
+    ? value.priorities.filter((id): id is RouteId => id === "ship" || id === "community" || id === "research").filter((id, index, all) => all.indexOf(id) === index).slice(0, 3)
     : base.priorities;
 
   const opportunities = Array.isArray(value.opportunities) ? value.opportunities.flatMap((raw): OpportunityCandidate[] => {
@@ -1027,6 +1042,9 @@ export function sanitizePersistedState(value: unknown): FutureDoorsState {
       sourceClause: safeText(raw.sourceClause, "Source clause unavailable; review before use.", 500),
       deadlineMonth,
       deadlineText: safeText(raw.deadlineText, formatMonth(deadlineMonth), 100),
+      ...(() => { try { return typeof raw.activityStartMonth === "string" ? { activityStartMonth: requirePathMonth(raw.activityStartMonth) } : {}; } catch { return {}; } })(),
+      ...(() => { try { return typeof raw.activityEndMonth === "string" ? { activityEndMonth: requirePathMonth(raw.activityEndMonth) } : {}; } catch { return {}; } })(),
+      ...(typeof raw.weeklyHours === "number" && Number.isInteger(raw.weeklyHours) && raw.weeklyHours >= 1 && raw.weeklyHours <= 168 ? { weeklyHours: raw.weeklyHours } : {}),
       requirements: safeTextList(raw.requirements, ["Review official requirements"], 4),
       ...(typeof raw.missingFact === "string" && raw.missingFact.trim() ? { missingFact: raw.missingFact.trim().slice(0, 120) } : {}),
       ...(typeof raw.prerequisite === "string" && raw.prerequisite.trim() ? { prerequisite: raw.prerequisite.trim().slice(0, 100) } : {}),
