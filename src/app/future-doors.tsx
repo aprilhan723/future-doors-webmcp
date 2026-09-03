@@ -328,7 +328,7 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
       {[
         ["01", "Save an opportunity", "Screenshot or link"],
         ["02", "Check the official source", "Rules and dates"],
-        ["03", "Build your mix", "Only if you approve"],
+        ["03", "Choose what it builds", "Only if you approve"],
       ].map(([number, title, detail]) => <motion.li key={number} variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} transition={{ duration: .46 }}>
         <i>{number}</i><span className={`clarity-step-icon step-${number}`} aria-hidden="true"><b /></span><div><strong>{title}</strong><small>{detail}</small></div>
       </motion.li>)}
@@ -343,14 +343,41 @@ const simpleRouteDetails: Record<RouteId, { timing: string; signal: string; trac
 };
 
 const routeDisplayOrder: RouteId[] = ["community", "research", "ship"];
-const activityStackLabels: Record<RouteId, { label: string; detail: string }> = {
-  ship: { label: "MAKE", detail: "Things people can try" },
-  community: { label: "CONTRIBUTE", detail: "Public collaboration" },
-  research: { label: "GET FEEDBACK", detail: "Mentored work" },
+type OpportunityCategory = "credential" | "activity" | "research" | "project" | "check";
+const activityStackLabels: Record<OpportunityCategory, { label: string; detail: string }> = {
+  credential: { label: "CREDENTIALS", detail: "Exams, certificates, licenses" },
+  activity: { label: "ACTIVITIES", detail: "Programs, teams, competitions" },
+  research: { label: "RESEARCH", detail: "Labs, studies, mentored inquiry" },
+  project: { label: "PROJECTS", detail: "Things you can build and show" },
+  check: { label: "CHECK", detail: "Needs a clearer outcome first" },
 };
+const activityStackOrder: OpportunityCategory[] = ["credential", "activity", "research", "project", "check"];
 
-function activityStackFor(candidate: OpportunityCandidate): RouteId | null {
-  return candidate.pathRouteId ?? getOpportunityRouteOptions(candidate)[0] ?? null;
+function activityStackFor(candidate: OpportunityCandidate): OpportunityCategory {
+  const text = [candidate.title, candidate.prerequisite, ...candidate.requirements, ...candidate.outputs].filter(Boolean).join(" ").toLowerCase();
+  if (/\b(certif|certificate|credential|license|licen[cs]e|exam|test score|language score)\b/.test(text)) return "credential";
+  if (/\b(research|lab|thesis|experiment|study|fellowship|professor|advisor)\b/.test(text)) return "research";
+  if (/\b(intern|volunteer|ambassador|competition|hackathon|contribution|collaboration|community|team|conference)\b/.test(text)) return "activity";
+  if (/\b(product|project|prototype|demo|app|website|portfolio|case study|build)\b/.test(text)) return "project";
+  return "check";
+}
+
+function opportunityFitSignals(candidate: OpportunityCandidate, profile: Profile, goal: FutureDoorsState["goals"][number]) {
+  const candidateText = [candidate.title, candidate.rationale, ...candidate.requirements, ...candidate.outputs].join(" ").toLowerCase();
+  const routeOptions = getOpportunityRouteOptions(candidate);
+  const weeklyCapacity = profile.preferences.timeCommitment === "Up to 10 hrs / week" ? 10 : profile.preferences.timeCommitment === "Up to 20 hrs / week" ? 20 : null;
+  const fieldTerms = profile.fieldOfStudy.toLowerCase().split(/[^a-z0-9]+/).filter((term) => term.length >= 4 && !["studies", "science"].includes(term));
+  const activityMonth = candidate.activityStartMonth ? Number(candidate.activityStartMonth.slice(-2)) : null;
+  const duringBreak = activityMonth === null ? false : activityMonth === 1 || activityMonth === 2 || (activityMonth >= 6 && activityMonth <= 8);
+  const scheduleMatches = profile.preferences.schedule === "Any schedule" || (profile.preferences.schedule === "Break only" ? duringBreak : activityMonth !== null && !duringBreak);
+  const locationMatches = profile.preferences.workMode !== "Remote first" || /\b(remote|online|virtual)\b/.test(candidateText);
+  return [
+    { label: "Official rule", matched: reviewOpportunity(candidate).status === "ready" || reviewOpportunity(candidate).status === "connected", detail: "The agent found a source and has no unanswered profile fact." },
+    { label: "Goal", matched: routeOptions.some((route) => goal.supportedRoutes.includes(route)), detail: "The listed activity can create evidence this selected future uses." },
+    { label: "Study area", matched: fieldTerms.some((term) => candidateText.includes(term)), detail: "The official description explicitly mentions your study area." },
+    { label: "Time", matched: candidate.weeklyHours !== undefined && (weeklyCapacity === null || candidate.weeklyHours <= weeklyCapacity) && scheduleMatches, detail: "Uses an official time requirement and activity window; unknown details stay unfilled." },
+    { label: "Format", matched: locationMatches, detail: "Matches the work format you chose. Remote-first requires an official remote or online statement." },
+  ];
 }
 
 function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoorsState; routes: Route[]; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void }) {
@@ -361,7 +388,7 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
   const choices = allRoutes.filter((item) => !["ineligible", "expired", "blocked"].includes(item.nodes[0].status)).slice(0, 3);
 
   return <section className="atlas-choice-deck" aria-label="Choose checked opportunities for your evidence dock">
-    <header className="atlas-deck-heading"><span><small>02 · CHECKED DOORS</small><h2>Drag a door into your evidence mix.</h2></span><b>{priorities.length} of {maxPriorities} selected</b></header>
+    <header className="atlas-deck-heading"><span><small>02 · CHECKED OPTIONS</small><h2>Choose work that moves this future forward.</h2></span><b>{priorities.length} of {maxPriorities} selected</b></header>
     <div className="atlas-door-list" aria-live="polite">
       {choices.map((item) => {
         const node = item.nodes[0];
@@ -376,7 +403,7 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
           className={`atlas-door-card ${pinned ? "pinned" : ""} ${item.id === state.selectedRouteId ? "focused" : ""}`}
           key={item.id}
           draggable={!pinned && !atLimit}
-          title={!pinned && !atLimit ? "Drag this door to the Evidence Dock, or use Add to dock." : undefined}
+          title={!pinned && !atLimit ? "Drag this option into your plan, or use Add to plan." : undefined}
           onDragStart={(event) => {
             event.dataTransfer.setData("application/x-future-doors-route", item.id);
             event.dataTransfer.setData("text/plain", routeNames[item.id].label);
@@ -387,13 +414,13 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
             <span className={`atlas-door-symbol ${node.status === "checking" ? "checking" : "open"}`} aria-hidden="true"><i /><b /></span>
             <span className="atlas-door-copy"><small>{status}</small><strong>{displayNodeTitle(node)}</strong><em>{detail.description}</em></span>
           </button>
-          <div className="atlas-door-result"><span>Adds a signal</span><strong>{detail.signal}</strong><em>Fits {fit.matches} preferences · supports {impact.count} future{impact.count === 1 ? "" : "s"}</em></div>
-          <button className="atlas-pin" disabled={atLimit} onClick={() => onToggle(item.id)}>{pinned ? "In dock" : atLimit ? "Dock full" : "Add to dock"}</button>
+          <div className="atlas-door-result"><span>It can build</span><strong>{detail.signal}</strong><em>Fits {fit.matches} preferences · supports {impact.count} future{impact.count === 1 ? "" : "s"}</em></div>
+          <button className="atlas-pin" disabled={atLimit} onClick={() => onToggle(item.id)}>{pinned ? "In plan" : atLimit ? "Plan full" : "Add to plan"}</button>
         </article>;
       })}
     </div>
     {unavailable ? <a className="atlas-closed-door" href={unavailable.nodes[0].sourceUrl} target="_blank" rel="noreferrer"><span className="atlas-closed-mark" aria-hidden="true">×</span><span><b>One saved door is closed right now</b><small>{displayNodeTitle(unavailable.nodes[0])} · see the official rule</small></span><i>↗</i></a> : null}
-    <footer>Agent checks the source. You decide which checked doors make a stronger mix.</footer>
+    <footer>The agent checks the source. You choose what belongs in your plan.</footer>
   </section>;
 }
 
@@ -439,10 +466,10 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRou
   };
   const criteria = selectedGoal.evidenceCriteria;
   const covered = criteria.filter((proofId) => planned.has(proofId) || linked.has(proofId)).length;
-  return <aside className="atlas-plan-deck" aria-label="Your evidence dock">
-    <header className="atlas-deck-heading"><span><small>03 · EVIDENCE DOCK</small><h2>Your evidence mix.</h2></span><b>{covered}/{criteria.length} covered</b></header>
+  return <aside className="atlas-plan-deck" aria-label="Your chosen plan">
+    <header className="atlas-deck-heading"><span><small>03 · YOUR PLAN</small><h2>What you&apos;ve chosen.</h2></span><b>{covered}/{criteria.length} covered</b></header>
     <section className="atlas-target"><small>YOUR SELECTED FUTURE</small><strong>{selectedGoal.title}</strong><span>Target · {selectedGoal.targetYear}</span></section>
-    <section className={`atlas-pins ${draggingOver ? "drop-ready" : ""}`} aria-label="Chosen evidence cards" onDragOver={(event) => { if (!canAddAnother) return; event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDraggingOver(true); }} onDragLeave={() => setDraggingOver(false)} onDrop={dropRoute}><small>{draggingOver ? "DROP TO ADD THIS CARD" : canAddAnother ? `YOUR MIX · ${connectedCards.length} SAVED CARD${connectedCards.length === 1 ? "" : "S"}` : "YOUR MIX · DOCK FULL"}</small>
+    <section className={`atlas-pins ${draggingOver ? "drop-ready" : ""}`} aria-label="Chosen plan cards" onDragOver={(event) => { if (!canAddAnother) return; event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDraggingOver(true); }} onDragLeave={() => setDraggingOver(false)} onDrop={dropRoute}><small>{draggingOver ? "DROP TO ADD THIS CARD" : canAddAnother ? `YOUR PLAN · ${connectedCards.length} SAVED CARD${connectedCards.length === 1 ? "" : "S"}` : "YOUR PLAN · FULL"}</small>
       {state.priorities.length ? state.priorities.map((id, index) => {
         const route = routes.find((item) => item.id === id);
         const proofId = ROUTE_PROOF[id];
@@ -454,10 +481,10 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRou
           <button className="atlas-proof-link" onClick={() => onProof(proofId)}>{hasLink ? "Work link" : "Add link"}</button>
           <button className="atlas-remove" onClick={() => onTogglePriority(id)} aria-label={`Remove ${routeNames[id].label}`}>×</button>
         </motion.article>;
-      }) : <div className="atlas-empty-plan"><b>Your dock is empty.</b><span>Combine up to three checked doors from the middle.</span></div>}
+      }) : <div className="atlas-empty-plan"><b>Your plan is empty.</b><span>Choose up to three checked options from the middle.</span></div>}
       {scheduleConflict ? <div className="atlas-plan-warning"><b>Scheduling check</b><span>{scheduleConflict.candidate.title} + {scheduleConflict.other.title} exceed your {weeklyCapacity}-hour limit where their official activity windows overlap.</span></div> : prerequisiteCard ? <div className="atlas-plan-warning"><b>Do this first</b><span>{prerequisiteCard.prerequisite}</span></div> : null}
     </section>
-    <section className="atlas-proof-map" aria-label="Evidence criteria covered by this plan"><small>YOUR GOAL&apos;S EVIDENCE CRITERIA</small>
+    <section className="atlas-proof-map" aria-label="What this future needs"><small>WHAT THIS FUTURE NEEDS</small>
       {criteria.map((proofId) => {
         const label = proofLabels[proofId];
         const status = linked.has(proofId) ? "linked" : planned.has(proofId) ? "planned" : "missing";
@@ -560,16 +587,15 @@ function ProofModal({ state, proofId, onApprove, onClose }: { state: FutureDoors
   </ModalFrame>;
 }
 
-function CaptureModal({ candidates, selectedId, profile, priorities, onSelect, onConnect, onClose }: { candidates: OpportunityCandidate[]; selectedId: string | null; profile: Profile; priorities: RouteId[]; onSelect: (id: string) => void; onConnect: (id: string, routeId: RouteId) => void; onClose: () => void }) {
+function CaptureModal({ candidates, selectedId, profile, careerGoal, priorities, onSelect, onConnect, onClose }: { candidates: OpportunityCandidate[]; selectedId: string | null; profile: Profile; careerGoal: FutureDoorsState["goals"][number]; priorities: RouteId[]; onSelect: (id: string) => void; onConnect: (id: string, routeId: RouteId) => void; onClose: () => void }) {
   const [routeChoice, setRouteChoice] = useState<RouteId | null>(null);
   const [copied, setCopied] = useState(false);
   const sortedCandidates = sortSavedOpportunities(candidates);
   const candidate = sortedCandidates.find((item) => item.id === selectedId) ?? sortedCandidates[0];
-  const activityStacks = routeDisplayOrder.map((routeId) => ({
-    routeId,
-    candidates: sortedCandidates.filter((item) => activityStackFor(item) === routeId),
+  const activityStacks = activityStackOrder.map((category) => ({
+    category,
+    candidates: sortedCandidates.filter((item) => activityStackFor(item) === category),
   })).filter((stack) => stack.candidates.length);
-  const unfiledCandidates = sortedCandidates.filter((item) => !activityStackFor(item));
   const capturePrompt = "Find the official page for this. Check the rule against my profile, then stage it in Future Doors for my review.";
   const copyCapturePrompt = async () => {
     let didCopy = false;
@@ -600,14 +626,16 @@ function CaptureModal({ candidates, selectedId, profile, priorities, onSelect, o
   const selectedRoute = routeChoice && routeOptions.includes(routeChoice) ? routeChoice : routeOptions[0];
   const willPinSelectedRoute = Boolean(selectedRoute && !priorities.includes(selectedRoute) && priorities.length < maxPriorities);
   const activityTiming = candidate.activityStartMonth ? `${formatMonth(candidate.activityStartMonth)}${candidate.activityEndMonth && candidate.activityEndMonth !== candidate.activityStartMonth ? `–${formatMonth(candidate.activityEndMonth)}` : ""}` : null;
-  return <ModalFrame label={`YOUR SCRAPBOOK · ${candidates.length}/7 · BY DEADLINE`} title="Build a balanced activity mix" onClose={onClose} className="capture-modal inbox-modal">
+  const fitSignals = opportunityFitSignals(candidate, profile, careerGoal);
+  const fitCount = fitSignals.filter((signal) => signal.matched).length;
+  const matchedFitLabels = fitSignals.filter((signal) => signal.matched).map((signal) => signal.label.toLowerCase());
+  return <ModalFrame label={`YOUR SCRAPBOOK · ${candidates.length}/7 · BY DEADLINE`} title="Sort your saved opportunities" onClose={onClose} className="capture-modal inbox-modal">
     <div className="inbox-layout">
       <nav className="inbox-list" aria-label="Saved opportunities">
-        {activityStacks.map((stack) => <section className="inbox-stack" key={stack.routeId}><header><span>{activityStackLabels[stack.routeId].label}</span><b>{stack.candidates.length}</b></header><small>{activityStackLabels[stack.routeId].detail}</small><div>{stack.candidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>DUE · {item.deadlineText}</span></button>; })}</div></section>)}
-        {unfiledCandidates.length ? <section className="inbox-stack unfiled"><header><span>KEEP CHECKING</span><b>{unfiledCandidates.length}</b></header><small>Needs a clearer output first</small><div>{unfiledCandidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>DUE · {item.deadlineText}</span></button>; })}</div></section> : null}
+        {activityStacks.map((stack) => <section className="inbox-stack" data-category={stack.category} key={stack.category}><header><span>{activityStackLabels[stack.category].label}</span><b>{stack.candidates.length}</b></header><small>{activityStackLabels[stack.category].detail}</small><div>{stack.candidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>DUE · {item.deadlineText}</span></button>; })}</div></section>)}
       </nav>
       <section className="candidate-review">
-        <div className={`candidate-banner ${review.status}`}><small>{review.label}</small><strong>{candidate.title}</strong><span>{candidate.deadlineText}</span></div>
+        <div className={`candidate-banner ${review.status}`}><small>{review.label}</small><strong>{candidate.title}</strong><span>{candidate.deadlineText}</span><div className="candidate-fit"><b>5 FACT CHECKS</b><i aria-hidden="true">{fitSignals.map((signal) => <span title={`${signal.label}: ${signal.detail}`} className={signal.matched ? "matched" : ""} key={signal.label}>♥</span>)}</i><em>{fitCount}/5: {matchedFitLabels.join(" · ") || "no verified match yet"} · not a success prediction</em></div></div>
         <div className="candidate-checks">
           <div><small>WHAT WE CHECKED</small>{candidate.requirements.map((item) => <span key={item}>✓ {item}</span>)}<a href={candidate.sourceUrl} target="_blank" rel="noreferrer">OPEN OFFICIAL PAGE ↗</a></div>
           <div><small>WHAT COULD THIS SUPPORT?</small><strong>{review.pathAnswer}</strong><p>{candidate.rationale}</p></div>
@@ -864,7 +892,7 @@ export default function FutureDoors() {
       {modal === "bridge" ? <BridgeModal state={state} onApprove={approveBridge} onClose={() => setModal(null)} /> : null}
       {modal === "priority" ? <PriorityModal state={state} onApprove={approvePriorities} onClose={() => setModal(null)} /> : null}
       {modal === "proof" ? <ProofModal state={state} proofId={selectedProofId} onApprove={approveProofReceipt} onClose={() => setModal(null)} /> : null}
-      {modal === "capture" ? <CaptureModal candidates={state.opportunities} selectedId={reviewOpportunityId} profile={state.profile} priorities={state.priorities} onSelect={setReviewOpportunityId} onConnect={connectOpportunity} onClose={() => setModal(null)} /> : null}
+      {modal === "capture" ? <CaptureModal candidates={state.opportunities} selectedId={reviewOpportunityId} profile={state.profile} careerGoal={state.goals.find((goal) => goal.id === state.selectedGoalId) ?? state.goals[0]} priorities={state.priorities} onSelect={setReviewOpportunityId} onConnect={connectOpportunity} onClose={() => setModal(null)} /> : null}
       {modal === "why" ? <WhyModal route={route} profile={state.profile} onClose={() => setModal(null)} /> : null}
       {modal === "tools" ? <ToolsModal status={webMcpStatus} onClose={() => setModal(null)} /> : null}
     </AnimatePresence>
