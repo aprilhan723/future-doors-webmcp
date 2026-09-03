@@ -17,7 +17,7 @@ Future Doors is a shared planning surface for a person and their agent:
 1. The person shares a screenshot or link they would otherwise lose.
 2. The agent finds the original official HTTPS source and stages the deadline, rules, missing facts, and concrete outputs for review.
 3. The person chooses whether that verified opportunity supports their build, public-contribution, or mentorship plan.
-4. Future Doors shows the work still needed for up to four career futures, while allowing only two near-term moves to be pinned.
+4. Future Doors shows the work still needed for up to four career futures, while allowing only three near-term moves to be pinned.
 
 The product does not predict admission, employment, or success. A social post is never treated as a source, and an agent cannot approve profile facts, a plan, or evidence on the person's behalf.
 
@@ -50,7 +50,7 @@ Codex was used to design the interaction model, implement the Next.js applicatio
 - Up to four career futures, each with a target year and remaining proof gap
 - Three legible plan types: build and ship, build in public, and get mentored
 - Practical fit signals for remote/hybrid/on-site, compensation, time commitment, schedule, and participation style
-- A two-move pin limit to make prioritisation real
+- A three-move pin limit to make prioritisation real
 - Rule mismatches that visibly block an unavailable opportunity
 - Separate source-backed alternatives that never imply closed eligibility was restored
 - Direct work links labelled `LINK SAVED · NOT VERIFIED`, never overstated as verified proof
@@ -69,7 +69,7 @@ Codex was used to design the interaction model, implement the Next.js applicatio
 No credentials are required.
 
 1. Open the live URL in ChatGPT's in-app browser.
-2. Start with **TRY THE EXAMPLE** to see three career futures, available activities, the two-move limit, and the proof gaps.
+2. Start with **TRY THE EXAMPLE** to see three career futures, goal-specific actions, the three-move limit, and the proof gaps.
 3. Choose **ADD A SCREENSHOT OR LINK** to read the intended collaboration contract: share a screenshot or link, ask the agent to find the official source, then review the proposed opportunity in the app.
 4. In ChatGPT, use a prompt such as: “Find the official source for this opportunity, check the relevant rule against my profile, then stage it in Future Doors for my review.”
 5. Confirm that the agent stages facts but the person chooses the route and approves the plan in the UI.
@@ -107,7 +107,7 @@ Recommended sequence:
 
 ## Screenshot Shot List
 
-1. Opening screen: **Save a post. Keep more futures open.**
+1. Opening screen: **Save the post. Plan what it can become.**
 2. Main planning board: three career futures, recommendation cards, and proof gaps.
 3. Screenshot handoff modal: save → official source → pin what fits.
 4. Rule mismatch: an ineligible cohort is visibly blocked with the official rule link.

@@ -6,7 +6,7 @@ This is a design walkthrough, not a claim of live user research. It was used to 
 
 Can a new visitor explain the product after one glance?
 
-Target answer: “I choose one of my possible futures, add up to two activities that fit it, and see the proof those activities would create. The agent checks sources, but I approve the plan.”
+Target answer: “I choose one of my possible futures, add up to three activities that fit it, and see the proof those activities would create. The agent checks sources, but I approve the plan.”
 
 ## Walkthrough panel
 

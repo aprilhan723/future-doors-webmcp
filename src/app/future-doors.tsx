@@ -2,7 +2,6 @@
 
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import Image from "next/image";
 import { AnimatedBackground, AnimatedGroup, Spotlight, Tilt } from "@/components/motion-primitives";
 import {
   PATH_START,
@@ -319,9 +318,12 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
       <small>YOUR SAVED POSTS, TURNED INTO A PLAN</small>
       <h1 id="launch-title">Save the post.<br /><em>Plan what it can become.</em></h1>
       <p>Bring a screenshot or link. The agent checks the official source; you choose the work that can support more than one future.</p>
-      <motion.aside className="clarity-future-guide" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .22, duration: .5 }}>
-        <Image src="/guide/future-guide.png" alt="Future Guide holding a saved opportunity card" width={180} height={180} priority />
-        <span><small>FUTURE GUIDE</small><b>Save it. I&apos;ll find the official details.</b></span>
+      <motion.aside className="clarity-path-objects" aria-label="The path from a saved post to a career plan" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .22, duration: .5 }}>
+        <span><PathMotif kind="door" /><b>Open a door</b></span>
+        <i aria-hidden="true">→</i>
+        <span><PathMotif kind="stairs" /><b>Build a step</b></span>
+        <i aria-hidden="true">→</i>
+        <span><PathMotif kind="clock" /><b>Watch the date</b></span>
       </motion.aside>
       <div className="clarity-launch-actions">
         <button className="primary" onClick={onAdd}>ADD A SCREENSHOT OR LINK <span>→</span></button>
@@ -341,23 +343,74 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
   </section>;
 }
 
-const simpleRouteDetails: Record<RouteId, { timing: string; signal: string; track: string; shortTrack: string; description: string }> = {
-  community: { timing: "Start anytime", signal: "Public collaboration", track: "Build in public", shortTrack: "BUILD", description: "Make one visible contribution with a review trail." },
-  research: { timing: "Next cycle", signal: "Mentor feedback", track: "Get feedback", shortTrack: "LEARN", description: "Start a mentored path before the application window." },
-  ship: { timing: "Check the cohort", signal: "A delivered project", track: "Ship a product", shortTrack: "SHIP", description: "Use a structured program to create work people can try." },
+type PathMotifKind = "door" | "stairs" | "clock";
+type RouteDetail = { timing: string; signal: string; track: string; shortTrack: string; description: string; title: string; motif: PathMotifKind };
+
+function PathMotif({ kind, className = "" }: { kind: PathMotifKind; className?: string }) {
+  if (kind === "stairs") return <span className={`path-motif path-motif-stairs ${className}`} aria-hidden="true"><i /><i /><i /></span>;
+  if (kind === "clock") return <span className={`path-motif path-motif-clock ${className}`} aria-hidden="true"><i /><b /></span>;
+  return <span className={`path-motif path-motif-door ${className}`} aria-hidden="true"><i /><b /></span>;
+}
+
+const simpleRouteDetails: Record<RouteId, RouteDetail> = {
+  community: { timing: "Start anytime", signal: "Public collaboration", track: "Build in public", shortTrack: "BUILD", title: "Build in public", description: "Make one visible contribution with a review trail.", motif: "stairs" },
+  research: { timing: "Next cycle", signal: "Mentor feedback", track: "Get feedback", shortTrack: "LEARN", title: "Get mentored", description: "Start a mentored path before the application window.", motif: "clock" },
+  ship: { timing: "Check the cohort", signal: "A delivered project", track: "Ship a product", shortTrack: "SHIP", title: "Ship a product", description: "Use a structured program to create work people can try.", motif: "door" },
 };
 
-const routeDisplayOrder: RouteId[] = ["community", "research", "ship"];
+const goalRouteDetails: Partial<Record<string, Partial<Record<RouteId, Pick<RouteDetail, "title" | "description" | "signal">>>>> = {
+  "ai-product": {
+    ship: { title: "Ship one AI workflow", description: "Make a small end-to-end tool that someone can actually try.", signal: "A usable AI product" },
+    community: { title: "Contribute to an AI tool", description: "A reviewed contribution becomes visible technical proof.", signal: "Public AI collaboration" },
+    research: { title: "Get an AI product critique", description: "Ask a maintainer or user for one specific review.", signal: "Product feedback" },
+  },
+  "hardware-story": {
+    community: { title: "Publish one hardware teardown", description: "Explain one system clearly and invite a technical review.", signal: "Technical storytelling" },
+    research: { title: "Ask a systems expert to review", description: "Use one focused critique to make your technical proof sharper.", signal: "Expert feedback" },
+  },
+  "learning-founder": {
+    ship: { title: "Prototype one learner moment", description: "Build a small learning experience and show how someone used it.", signal: "A learner-facing prototype" },
+    community: { title: "Run five learner discovery calls", description: "Turn real learner conversations into public product insight.", signal: "Learner evidence" },
+  },
+};
+
+function routeDetailForGoal(goal: FutureDoorsState["goals"][number], routeId: RouteId): RouteDetail {
+  return { ...simpleRouteDetails[routeId], ...goalRouteDetails[goal.id]?.[routeId] };
+}
+
 const routeCardStyle: Record<RouteId, { category: string; tone: string }> = {
   community: { category: "ACTIVITY", tone: "activity" },
   research: { category: "MENTORED ACTIVITY", tone: "research" },
   ship: { category: "PROJECT", tone: "project" },
 };
-const starterActions = [
+type StarterAction = { id: string; category: "PROJECT" | "CREDENTIAL" | "RESEARCH"; title: string; detail: string; builds: string; tone: "project" | "credential" | "research" };
+const starterActions: StarterAction[] = [
   { id: "case-study", category: "PROJECT", title: "Turn one assignment into a case study", detail: "Start any time", builds: "Demonstrated skill", tone: "project" },
   { id: "credential", category: "CREDENTIAL", title: "Prepare one useful credential", detail: "Use only when required", builds: "Verifiable requirement", tone: "credential" },
   { id: "research", category: "RESEARCH", title: "Ask for one scoped review", detail: "One review can be enough", builds: "Mentor feedback", tone: "research" },
-] as const;
+];
+
+const goalStarterActions: Partial<Record<string, StarterAction[]>> = {
+  "ai-product": [
+    { id: "ai-case", category: "PROJECT", title: "Write one AI product case study", detail: "Show a user problem and a tested workflow", builds: "Product thinking", tone: "project" },
+    { id: "ai-credential", category: "CREDENTIAL", title: "Map one required AI credential", detail: "Only when a target program asks for it", builds: "A verified requirement", tone: "credential" },
+    { id: "ai-review", category: "RESEARCH", title: "Ask a user to test one flow", detail: "Five minutes of feedback is enough to start", builds: "User feedback", tone: "research" },
+  ],
+  "hardware-story": [
+    { id: "hardware-case", category: "PROJECT", title: "Explain one system visually", detail: "Turn a technical idea into one clear visual story", builds: "Technical communication", tone: "project" },
+    { id: "hardware-credential", category: "CREDENTIAL", title: "Map one technical requirement", detail: "Use a credential only when a role needs it", builds: "A verified requirement", tone: "credential" },
+    { id: "hardware-review", category: "RESEARCH", title: "Ask for a teardown review", detail: "A single expert critique can reveal the next gap", builds: "Expert feedback", tone: "research" },
+  ],
+  "learning-founder": [
+    { id: "learning-case", category: "PROJECT", title: "Make one learner journey", detail: "Prototype one moment that helps a learner move", builds: "A learner-facing prototype", tone: "project" },
+    { id: "learning-credential", category: "CREDENTIAL", title: "Map one education requirement", detail: "Use a credential only when a target asks for it", builds: "A verified requirement", tone: "credential" },
+    { id: "learning-review", category: "RESEARCH", title: "Ask an educator for feedback", detail: "A focused review can sharpen the next version", builds: "Learner feedback", tone: "research" },
+  ],
+};
+
+function starterActionsForGoal(goal: FutureDoorsState["goals"][number]) {
+  return goalStarterActions[goal.id] ?? starterActions;
+}
 type OpportunityCategory = "credential" | "activity" | "research" | "project" | "check";
 const activityStackLabels: Record<OpportunityCategory, { label: string; detail: string }> = {
   credential: { label: "CREDENTIALS", detail: "Exams, certificates, licenses" },
@@ -398,27 +451,30 @@ function opportunityFitSignals(candidate: OpportunityCandidate, profile: Profile
 function PinProofStage({ state, routes, onToggle, onRoute, onCapture, nowEpoch }: { state: FutureDoorsState; routes: Route[]; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onCapture: () => void; nowEpoch: number }) {
   const priorities = state.priorities;
   const proposed = new Set(state.priorityProposal.state === "staged" ? state.priorityProposal.routeIds : []);
-  const allRoutes = routeDisplayOrder.map((id) => routes.find((item) => item.id === id)).filter((item): item is Route => Boolean(item));
+  const selectedGoal = state.goals.find((goal) => goal.id === state.selectedGoalId) ?? state.goals[0];
+  const allRoutes = selectedGoal.supportedRoutes.map((id) => routes.find((item) => item.id === id)).filter((item): item is Route => Boolean(item));
   const unavailable = allRoutes.filter((item) => ["ineligible", "expired", "blocked"].includes(item.nodes[0].status));
   const choices = allRoutes.filter((item) => !["ineligible", "expired", "blocked"].includes(item.nodes[0].status)).slice(0, 3);
+  const starters = starterActionsForGoal(selectedGoal);
   const latestClosure = state.activity.find((entry) => entry.label === "Opportunity missed in try-out" || entry.label === "Path clock moved")?.timestamp;
   const closureAge = latestClosure ? nowEpoch - new Date(latestClosure).getTime() : Number.POSITIVE_INFINITY;
   const recentlyClosed = unavailable.filter((item) => item.nodes[0].status === "expired" && closureAge >= 0 && closureAge <= 7 * 24 * 60 * 60 * 1000);
   const needsAnotherWay = unavailable.filter((item) => item.nodes[0].status !== "expired");
 
-  return <section className="atlas-choice-deck" aria-label="Choose source-checked work for your plan">
-    <header className="atlas-deck-heading"><span><small>02 · CHECKED OPTIONS</small><h2>Choose work that moves this future forward.</h2></span><b>{priorities.length} of {maxPriorities} selected</b></header>
+  return <section className="atlas-choice-deck" aria-label="Choose work for your selected future">
+    <header className="atlas-deck-heading"><span><small>02 · FOR {selectedGoal.shortLabel.toUpperCase()}</small><h2>Choose work for this future.</h2></span><b>{priorities.length} of {maxPriorities} selected</b></header>
     <div className="atlas-door-list" aria-live="polite">
       {choices.map((item) => {
         const node = item.nodes[0];
-        const detail = simpleRouteDetails[item.id];
+        const detail = routeDetailForGoal(selectedGoal, item.id);
         const fit = getRouteFit(state, item.id);
         const impact = getRouteFutureImpact(state, item.id);
         const cardStyle = routeCardStyle[item.id];
+        const hasSavedSource = state.opportunities.some((candidate) => candidate.state === "connected" && candidate.pathRouteId === item.id);
         const pinned = priorities.includes(item.id);
         const staged = proposed.has(item.id) && !pinned;
         const atLimit = !pinned && priorities.length >= maxPriorities;
-        const status = node.status === "checking" ? "CHECK THE RULE" : staged ? "AGENT SUGGESTED" : "OPEN NOW";
+        const status = hasSavedSource ? (node.status === "checking" ? "CHECK THE RULE" : staged ? "AGENT SUGGESTED" : "OPEN NOW") : "START HERE";
         return <article
           className={`atlas-door-card tone-${cardStyle.tone} ${pinned ? "pinned" : ""} ${item.id === state.selectedRouteId ? "focused" : ""}`}
           key={item.id}
@@ -431,23 +487,23 @@ function PinProofStage({ state, routes, onToggle, onRoute, onCapture, nowEpoch }
           }}
         >
           <button className="atlas-door-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
-            <span className={`atlas-door-symbol ${node.status === "checking" ? "checking" : "open"}`} aria-hidden="true"><i /><b /></span>
-            <span className="atlas-door-copy"><small>{status}</small><i>{cardStyle.category}</i><strong>{displayNodeTitle(node)}</strong><em>{detail.description}</em></span>
+            <PathMotif kind={detail.motif} className={`atlas-card-motif tone-${cardStyle.tone}`} />
+            <span className="atlas-door-copy"><small>{status}</small><i>{cardStyle.category}</i><strong>{hasSavedSource ? displayNodeTitle(node) : detail.title}</strong><em>{detail.description}</em></span>
           </button>
-          <div className="atlas-door-result"><span>BUILDS</span><strong>{detail.signal}</strong><em>{impact.count} future{impact.count === 1 ? "" : "s"} can use this</em><div className="atlas-route-hearts"><b>FIT</b>{Array.from({ length: fit.total }, (_, index) => <i className={index < fit.matches ? "matched" : ""} key={index} aria-hidden="true">♥</i>)}<small>{fit.matches}/{fit.total}</small></div></div>
+          <div className="atlas-door-result"><span>BUILDS</span><strong>{detail.signal}</strong><em>{impact.count > 1 ? `Also useful for ${impact.count - 1} other future${impact.count === 2 ? "" : "s"}` : "Specific to this future"}</em><div className="atlas-route-hearts"><b>FIT</b>{Array.from({ length: fit.total }, (_, index) => <i className={index < fit.matches ? "matched" : ""} key={index} aria-hidden="true">♥</i>)}<small>{fit.matches}/{fit.total}</small></div></div>
           <button className="atlas-pin" disabled={atLimit} onClick={() => onToggle(item.id)}>{pinned ? "In plan" : atLimit ? "Plan full" : "Add to plan"}</button>
         </article>;
       })}
       <section className="atlas-starter-actions" aria-label="Starter activities to consider">
-        <header><span>MORE WAYS TO BUILD</span><small>Starter ideas · no open call claimed</small></header>
-        <div>{starterActions.map((action) => <article className={`atlas-starter-card tone-${action.tone}`} key={action.id}><span className="atlas-starter-mark" aria-hidden="true" /><div><small>{action.category}</small><strong>{action.title}</strong><p>{action.detail}</p></div><aside><small>CAN BUILD</small><b>{action.builds}</b><button onClick={onCapture}>FIND A POST</button></aside></article>)}</div>
+        <header><span>STARTER MOVES FOR THIS FUTURE</span><small>Ideas only · add an official source when one matters</small></header>
+        <div>{starters.map((action) => <article className={`atlas-starter-card tone-${action.tone}`} key={action.id}><PathMotif kind={action.tone === "research" ? "clock" : action.tone === "credential" ? "door" : "stairs"} className="atlas-starter-motif" /><div><small>{action.category}</small><strong>{action.title}</strong><p>{action.detail}</p></div><aside><small>CAN BUILD</small><b>{action.builds}</b><button onClick={onCapture}>FIND A POST</button></aside></article>)}</div>
       </section>
     </div>
     {recentlyClosed.length || needsAnotherWay.length ? <section className="atlas-not-ready" aria-label="Recently closed or not-ready opportunities">
       {recentlyClosed.map((item) => <a className="atlas-recently-closed" href={item.nodes[0].sourceUrl} target="_blank" rel="noreferrer" key={item.id}><span aria-hidden="true">×</span><div><small>RECENTLY CLOSED · HIDDEN AFTER 7 DAYS</small><b>{displayNodeTitle(item.nodes[0])}</b></div><i>↗</i></a>)}
       {needsAnotherWay.map((item) => <article className="atlas-muted-door" key={item.id}><span aria-hidden="true">○</span><div><small>{item.nodes[0].status === "ineligible" ? "DOES NOT MATCH THIS PROFILE" : "NEEDS A FIRST STEP"}</small><b>{displayNodeTitle(item.nodes[0])}</b><p>{item.nodes[0].status === "ineligible" ? "Keep the career goal. Find a source with rules that match you." : item.nodes[0].evidence[0] ?? "Find the missing first step before adding this."}</p></div><button onClick={onCapture}>{item.nodes[0].status === "ineligible" ? "FIND A MATCH" : "ADD THE FIRST STEP"}</button></article>)}
     </section> : null}
-    <footer>The agent checks the source. You choose what belongs in your plan.</footer>
+    <footer>Match the source to your facts. You decide what belongs in your plan.</footer>
   </section>;
 }
 
@@ -467,7 +523,7 @@ function FutureDeck({ state, cvName, onUpload, onReview, onGoal, onSelectGoal, o
   </aside>;
 }
 
-function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRoute }: { state: FutureDoorsState; routes: Route[]; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onProof: (proofId: ProofId) => void; onDropRoute: (id: RouteId) => void }) {
+function PlanDeck({ state, onRoute, onTogglePriority, onProof, onDropRoute }: { state: FutureDoorsState; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onProof: (proofId: ProofId) => void; onDropRoute: (id: RouteId) => void }) {
   const planned = new Set(state.priorities.flatMap((id) => ROUTE_PROOFS[id]));
   const linked = new Set(state.proofReceipts.map((receipt) => receipt.proofId));
   const selectedGoal = state.goals.find((goal) => goal.id === state.selectedGoalId) ?? state.goals[0];
@@ -495,16 +551,15 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRou
   const covered = criteria.filter((proofId) => planned.has(proofId) || linked.has(proofId)).length;
   return <aside className="atlas-plan-deck" aria-label="Your chosen plan">
     <header className="atlas-deck-heading"><span><small>03 · YOUR PLAN</small><h2>Your selected work.</h2></span><b>{covered}/{criteria.length} covered</b></header>
-    <section className="atlas-target"><small>YOUR SELECTED FUTURE</small><strong>{selectedGoal.title}</strong><span>Target · {selectedGoal.targetYear}</span></section>
+    <section className="atlas-target"><PathMotif kind="stairs" className="atlas-target-motif" /><small>YOUR SELECTED FUTURE</small><strong>{selectedGoal.title}</strong><span>Target · {selectedGoal.targetYear}</span></section>
     <section className={`atlas-pins ${draggingOver ? "drop-ready" : ""}`} aria-label="Chosen plan cards" onDragOver={(event) => { if (!canAddAnother) return; event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDraggingOver(true); }} onDragLeave={() => setDraggingOver(false)} onDrop={dropRoute}><small>{draggingOver ? "DROP TO ADD THIS CARD" : canAddAnother ? `YOUR PLAN · ${state.priorities.length} PLANNED ITEM${state.priorities.length === 1 ? "" : "S"}` : "YOUR PLAN · FULL"}</small>
       {state.priorities.length ? state.priorities.map((id, index) => {
-        const route = routes.find((item) => item.id === id);
         const proofId = ROUTE_PROOF[id];
         const hasLink = linked.has(proofId);
         const sourceCards = cardsForRoute(id);
         const primarySourceCard = sourceCards[0];
         return <motion.article key={id} layout>
-          <button onClick={() => onRoute(id)}><i>{index + 1}</i><span><strong>{primarySourceCard?.title ?? (route?.nodes[0] ? displayNodeTitle(route.nodes[0]) : routeNames[id].label)}</strong><em>{primarySourceCard ? `${sourceCards.length} saved card${sourceCards.length === 1 ? "" : "s"} · official source checked` : `Covers ${simpleRouteDetails[id].signal}`}</em></span></button>
+          <button onClick={() => onRoute(id)}><i>{index + 1}</i><span><strong>{primarySourceCard?.title ?? routeDetailForGoal(selectedGoal, id).title}</strong><em>{primarySourceCard ? `${sourceCards.length} saved card${sourceCards.length === 1 ? "" : "s"} · official source checked` : `Builds ${routeDetailForGoal(selectedGoal, id).signal}`}</em></span></button>
           <button className="atlas-proof-link" onClick={() => onProof(proofId)}>{hasLink ? "Work link" : "Add link"}</button>
           <button className="atlas-remove" onClick={() => onTogglePriority(id)} aria-label={`Remove ${routeNames[id].label}`}>×</button>
         </motion.article>;
@@ -531,7 +586,7 @@ function EditorialWorkspace({ state, routes, cvName, onUpload, onReview, onGoal,
     <div className="clarity-board">
       <FutureDeck state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} onSelectGoal={onSelectGoal} onAddGoal={onAddGoal} />
       <PinProofStage state={state} routes={routes} onToggle={onTogglePriority} onRoute={onRoute} onCapture={onCapture} nowEpoch={nowEpoch} />
-      <PlanDeck state={state} routes={routes} onRoute={onRoute} onTogglePriority={onTogglePriority} onProof={onProof} onDropRoute={(routeId) => { if (!state.priorities.includes(routeId)) onTogglePriority(routeId); }} />
+      <PlanDeck state={state} onRoute={onRoute} onTogglePriority={onTogglePriority} onProof={onProof} onDropRoute={(routeId) => { if (!state.priorities.includes(routeId)) onTogglePriority(routeId); }} />
     </div>
   </section>;
 }
