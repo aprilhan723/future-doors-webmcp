@@ -343,6 +343,11 @@ const simpleRouteDetails: Record<RouteId, { timing: string; signal: string; trac
 };
 
 const routeDisplayOrder: RouteId[] = ["community", "research", "ship"];
+const routeCardStyle: Record<RouteId, { category: string; tone: string }> = {
+  community: { category: "ACTIVITY", tone: "activity" },
+  research: { category: "MENTORED ACTIVITY", tone: "research" },
+  ship: { category: "PROJECT", tone: "project" },
+};
 type OpportunityCategory = "credential" | "activity" | "research" | "project" | "check";
 const activityStackLabels: Record<OpportunityCategory, { label: string; detail: string }> = {
   credential: { label: "CREDENTIALS", detail: "Exams, certificates, licenses" },
@@ -387,7 +392,7 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
   const unavailable = allRoutes.find((item) => ["ineligible", "expired", "blocked"].includes(item.nodes[0].status));
   const choices = allRoutes.filter((item) => !["ineligible", "expired", "blocked"].includes(item.nodes[0].status)).slice(0, 3);
 
-  return <section className="atlas-choice-deck" aria-label="Choose checked opportunities for your evidence dock">
+  return <section className="atlas-choice-deck" aria-label="Choose source-checked work for your plan">
     <header className="atlas-deck-heading"><span><small>02 · CHECKED OPTIONS</small><h2>Choose work that moves this future forward.</h2></span><b>{priorities.length} of {maxPriorities} selected</b></header>
     <div className="atlas-door-list" aria-live="polite">
       {choices.map((item) => {
@@ -395,12 +400,13 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
         const detail = simpleRouteDetails[item.id];
         const fit = getRouteFit(state, item.id);
         const impact = getRouteFutureImpact(state, item.id);
+        const cardStyle = routeCardStyle[item.id];
         const pinned = priorities.includes(item.id);
         const staged = proposed.has(item.id) && !pinned;
         const atLimit = !pinned && priorities.length >= maxPriorities;
         const status = node.status === "checking" ? "CHECK THE RULE" : staged ? "AGENT SUGGESTED" : "OPEN NOW";
         return <article
-          className={`atlas-door-card ${pinned ? "pinned" : ""} ${item.id === state.selectedRouteId ? "focused" : ""}`}
+          className={`atlas-door-card tone-${cardStyle.tone} ${pinned ? "pinned" : ""} ${item.id === state.selectedRouteId ? "focused" : ""}`}
           key={item.id}
           draggable={!pinned && !atLimit}
           title={!pinned && !atLimit ? "Drag this option into your plan, or use Add to plan." : undefined}
@@ -412,9 +418,9 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
         >
           <button className="atlas-door-main" onClick={() => onRoute(item.id)} aria-pressed={item.id === state.selectedRouteId}>
             <span className={`atlas-door-symbol ${node.status === "checking" ? "checking" : "open"}`} aria-hidden="true"><i /><b /></span>
-            <span className="atlas-door-copy"><small>{status}</small><strong>{displayNodeTitle(node)}</strong><em>{detail.description}</em></span>
+            <span className="atlas-door-copy"><small>{status}</small><i>{cardStyle.category}</i><strong>{displayNodeTitle(node)}</strong><em>{detail.description}</em></span>
           </button>
-          <div className="atlas-door-result"><span>It can build</span><strong>{detail.signal}</strong><em>Fits {fit.matches} preferences · supports {impact.count} future{impact.count === 1 ? "" : "s"}</em></div>
+          <div className="atlas-door-result"><span>BUILDS</span><strong>{detail.signal}</strong><em>{impact.count} future{impact.count === 1 ? "" : "s"} can use this</em><div className="atlas-route-hearts"><b>FIT</b>{Array.from({ length: fit.total }, (_, index) => <i className={index < fit.matches ? "matched" : ""} key={index} aria-hidden="true">♥</i>)}<small>{fit.matches}/{fit.total}</small></div></div>
           <button className="atlas-pin" disabled={atLimit} onClick={() => onToggle(item.id)}>{pinned ? "In plan" : atLimit ? "Plan full" : "Add to plan"}</button>
         </article>;
       })}
@@ -491,7 +497,7 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRou
         return <button className={status} key={proofId} disabled={status === "missing"} onClick={() => onProof(proofId)}><i>{status === "linked" ? "✓" : status === "planned" ? "●" : "○"}</i><span>{label}</span></button>;
       })}
     </section>
-    <footer><b>You approve every change.</b><span>{state.priorities.length ? `${connectedCards.length ? `${connectedCards.length} saved card${connectedCards.length === 1 ? "" : "s"} in this mix · ` : ""}covers ${covered} of ${criteria.length} signals across ${activeFutures.length} future${activeFutures.length === 1 ? "" : "s"}.` : "The agent never chooses or claims you are competitive."}</span></footer>
+    <footer><b>You approve every change.</b><span>{state.priorities.length ? `${connectedCards.length ? `${connectedCards.length} saved card${connectedCards.length === 1 ? "" : "s"} in this plan · ` : ""}covers ${covered} of ${criteria.length} things this future needs across ${activeFutures.length} future${activeFutures.length === 1 ? "" : "s"}.` : "The agent never chooses or claims you are competitive."}</span></footer>
   </aside>;
 }
 
@@ -549,7 +555,7 @@ function GoalModal({ profile, careerGoal, mode, onSave, onClose }: { profile: Pr
   const [gap, setGap] = useState(adding ? "A visible proof of work" : profile.gap);
   const [criteria, setCriteria] = useState<ProofId[]>(adding ? evidenceCriteria.map((item) => item.id) : careerGoal?.evidenceCriteria ?? evidenceCriteria.map((item) => item.id));
   const toggleCriterion = (criterion: ProofId) => setCriteria((current) => current.includes(criterion) ? current.length > 1 ? current.filter((id) => id !== criterion) : current : [...current, criterion]);
-  return <ModalFrame label={adding ? "ADD A DIRECTION" : "SET A DIRECTION"} title={adding ? "Keep another future open" : "Where should this path lead?"} onClose={onClose} className="goal-modal"><div className="modal-fields"><label className="wide">Direction<input autoFocus placeholder="For example, Sustainability product builder" value={goal} onChange={(e) => setGoal(e.target.value)} /></label><label>Target year<input type="number" min="2027" max="2040" value={year} onChange={(e) => setYear(Number(e.target.value) || profile.targetYear)} /></label><label className="wide">What would show progress?<input value={gap} onChange={(e) => setGap(e.target.value)} /></label><fieldset className="wide goal-support"><legend>What should this future have evidence of?</legend><span>Pick the signals that matter. Your saved cards will show which gaps they cover — never a success prediction.</span><div>{evidenceCriteria.map((criterion) => <button type="button" key={criterion.id} className={criteria.includes(criterion.id) ? "selected" : ""} onClick={() => toggleCriterion(criterion.id)} title={criterion.detail}><i>{criteria.includes(criterion.id) ? "✓" : ""}</i>{criterion.label}</button>)}</div></fieldset></div><p className="modal-note">You can keep up to four directions. Drag source-checked cards into the Evidence Dock to build a mix around these signals.</p><footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(goal.trim() || (adding ? "New direction" : profile.goal), Math.min(2040, Math.max(2027, year)), gap.trim() || "A visible proof of work", criteria)}>{adding ? "ADD TO MY GOALS" : "REBUILD DOCK"}</button></footer></ModalFrame>;
+  return <ModalFrame label={adding ? "ADD A DIRECTION" : "SET A DIRECTION"} title={adding ? "Keep another future open" : "Where should this path lead?"} onClose={onClose} className="goal-modal"><div className="modal-fields"><label className="wide">Direction<input autoFocus placeholder="For example, Sustainability product builder" value={goal} onChange={(e) => setGoal(e.target.value)} /></label><label>Target year<input type="number" min="2027" max="2040" value={year} onChange={(e) => setYear(Number(e.target.value) || profile.targetYear)} /></label><label className="wide">What would show progress?<input value={gap} onChange={(e) => setGap(e.target.value)} /></label><fieldset className="wide goal-support"><legend>What should this future have evidence of?</legend><span>Pick what matters. Saved cards show what each activity can create — never a success prediction.</span><div>{evidenceCriteria.map((criterion) => <button type="button" key={criterion.id} className={criteria.includes(criterion.id) ? "selected" : ""} onClick={() => toggleCriterion(criterion.id)} title={criterion.detail}><i>{criteria.includes(criterion.id) ? "✓" : ""}</i>{criterion.label}</button>)}</div></fieldset></div><p className="modal-note">You can keep up to four directions. Add source-checked cards when they create something this future needs.</p><footer><button onClick={onClose}>CANCEL</button><button className="primary" onClick={() => onSave(goal.trim() || (adding ? "New direction" : profile.goal), Math.min(2040, Math.max(2027, year)), gap.trim() || "A visible proof of work", criteria)}>{adding ? "ADD TO MY GOALS" : "REBUILD PLAN"}</button></footer></ModalFrame>;
 }
 
 function BridgeModal({ state, onApprove, onClose }: { state: FutureDoorsState; onApprove: () => void; onClose: () => void }) {
