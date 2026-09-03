@@ -35,3 +35,10 @@
 @media (max-width:700px){.atlas-starter-actions{padding-top:13px}.atlas-starter-actions>header{align-items:flex-start;flex-direction:column;gap:4px}.atlas-starter-actions>header small{text-align:left}.atlas-starter-actions>div{grid-template-columns:1fr}.atlas-starter-card{grid-template-columns:20px minmax(0,1fr);padding:12px}.atlas-starter-card strong{font-size:13px}.atlas-starter-card p{font-size:9px}.atlas-not-ready{margin:0 11px 11px}.atlas-muted-door{grid-template-columns:23px minmax(0,1fr)}.atlas-muted-door button{grid-column:2;justify-self:start}.atlas-recently-closed{grid-template-columns:23px minmax(0,1fr) auto}}
 
 .atlas-starter-card strong{font-size:12px}.atlas-starter-card p{font-size:9px}.atlas-starter-card aside small,.atlas-starter-card aside b,.atlas-starter-card aside button{font-size:8px}
+
+/* Prevent dense desktop layouts from compressing live choices below a readable height. */
+.atlas-door-card{min-height:112px}.atlas-goal-tabs strong{display:-webkit-box;overflow:hidden;white-space:normal;text-overflow:clip;-webkit-box-orient:vertical;-webkit-line-clamp:2}.atlas-starter-card p{margin-top:4px}.atlas-starter-card aside{margin-top:0;padding-top:7px}.atlas-starter-actions>header small{font-size:8px}
+
+/* A panel may scroll, but its contents must never be clipped or silently compressed. */
+.atlas-plan-deck{overflow:auto;overscroll-behavior:contain}.atlas-target{padding:13px 16px}.atlas-pins{min-height:116px;padding:11px 14px}.atlas-pins article{padding:7px}.atlas-proof-map{padding:10px 14px;grid-auto-rows:minmax(42px,auto)}.atlas-plan-deck>footer{padding:10px 14px}
+@media (max-width:700px){.atlas-door-card{min-height:0}.atlas-plan-deck{overflow:visible}}

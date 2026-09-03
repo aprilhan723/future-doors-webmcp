@@ -479,6 +479,10 @@ button,input{font:inherit}button{cursor:pointer}
 
 /* The scrapbook entry point has to stay readable at every desktop width. */
 .clarity-capture>span:nth-child(2){min-width:0}.clarity-capture small{overflow:hidden;font-size:9px;text-overflow:ellipsis;white-space:nowrap}.clarity-capture strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Saved is a real, always-reachable folder — not another ambiguous call to action. */
+.spatial-topbar nav .spatial-saved{border-color:rgba(255,198,118,.32);background:rgba(255,198,118,.09);color:#ffe3b7}.spatial-topbar nav .spatial-saved:hover{border-color:rgba(255,211,149,.7);background:rgba(255,198,118,.16)}
+@media(max-width:820px){.spatial-topbar nav .spatial-saved{width:32px;padding:0!important;display:inline-flex!important;align-items:center;justify-content:center;font-size:0}.spatial-topbar nav .spatial-saved::before{content:"♥";font-size:13px}}
 .modal-fields fieldset.wide{grid-column:1/-1}.goal-support{min-width:0;margin:0;padding:11px;border:1px solid #d9dfea;border-radius:10px;background:#fafbff}.goal-support legend{padding:0 3px;color:#313d6f;font-size:11px;font-weight:850}.goal-support>span{display:block;color:#697389;font-size:10px;line-height:1.35}.goal-support>div{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.goal-support button{min-height:31px;padding:0 9px;display:flex;align-items:center;gap:5px;border:1px solid #cbd2e2;border-radius:999px;background:#fff;color:#61708a;font-size:10px;font-weight:800}.goal-support button.selected{border-color:#5b68e8;background:#eef0ff;color:#3443bc}.goal-support button i{width:13px;height:13px;display:grid;place-items:center;border-radius:50%;background:#5b68e8;color:#fff;font-size:8px;font-style:normal}
 .plan-target strong{flex-shrink:0}.plan-target em{display:block;margin-top:5px;color:#64708a;font-size:11px;font-style:normal;line-height:1.25}@media(min-width:981px){.plan-deck{grid-template-rows:75px 116px minmax(0,1fr) 144px auto}}
 

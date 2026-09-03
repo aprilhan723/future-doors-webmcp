@@ -354,9 +354,9 @@ const routeCardStyle: Record<RouteId, { category: string; tone: string }> = {
   ship: { category: "PROJECT", tone: "project" },
 };
 const starterActions = [
-  { id: "case-study", category: "PROJECT", title: "Turn one assignment into a case study", detail: "Make one public artifact people can review.", builds: "Demonstrated skill", tone: "project" },
-  { id: "credential", category: "CREDENTIAL", title: "Prepare one useful credential", detail: "Use a credential only when a target program needs it.", builds: "A verifiable requirement", tone: "credential" },
-  { id: "research", category: "RESEARCH", title: "Ask for one scoped review", detail: "Get one review you can reuse across futures.", builds: "Mentor feedback", tone: "research" },
+  { id: "case-study", category: "PROJECT", title: "Turn one assignment into a case study", detail: "Start any time", builds: "Demonstrated skill", tone: "project" },
+  { id: "credential", category: "CREDENTIAL", title: "Prepare one useful credential", detail: "Use only when required", builds: "Verifiable requirement", tone: "credential" },
+  { id: "research", category: "RESEARCH", title: "Ask for one scoped review", detail: "One review can be enough", builds: "Mentor feedback", tone: "research" },
 ] as const;
 type OpportunityCategory = "credential" | "activity" | "research" | "project" | "check";
 const activityStackLabels: Record<OpportunityCategory, { label: string; detail: string }> = {
@@ -439,7 +439,7 @@ function PinProofStage({ state, routes, onToggle, onRoute, onCapture, nowEpoch }
         </article>;
       })}
       <section className="atlas-starter-actions" aria-label="Starter activities to consider">
-        <header><span>MORE WAYS TO BUILD</span><small>Start any time · add an official source when one matters</small></header>
+        <header><span>MORE WAYS TO BUILD</span><small>Starter ideas · no open call claimed</small></header>
         <div>{starterActions.map((action) => <article className={`atlas-starter-card tone-${action.tone}`} key={action.id}><span className="atlas-starter-mark" aria-hidden="true" /><div><small>{action.category}</small><strong>{action.title}</strong><p>{action.detail}</p></div><aside><small>CAN BUILD</small><b>{action.builds}</b><button onClick={onCapture}>FIND A POST</button></aside></article>)}</div>
       </section>
     </div>
@@ -494,9 +494,9 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRou
   const criteria = selectedGoal.evidenceCriteria;
   const covered = criteria.filter((proofId) => planned.has(proofId) || linked.has(proofId)).length;
   return <aside className="atlas-plan-deck" aria-label="Your chosen plan">
-    <header className="atlas-deck-heading"><span><small>03 · YOUR PLAN</small><h2>What you&apos;ve chosen.</h2></span><b>{covered}/{criteria.length} covered</b></header>
+    <header className="atlas-deck-heading"><span><small>03 · YOUR PLAN</small><h2>Your selected work.</h2></span><b>{covered}/{criteria.length} covered</b></header>
     <section className="atlas-target"><small>YOUR SELECTED FUTURE</small><strong>{selectedGoal.title}</strong><span>Target · {selectedGoal.targetYear}</span></section>
-    <section className={`atlas-pins ${draggingOver ? "drop-ready" : ""}`} aria-label="Chosen plan cards" onDragOver={(event) => { if (!canAddAnother) return; event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDraggingOver(true); }} onDragLeave={() => setDraggingOver(false)} onDrop={dropRoute}><small>{draggingOver ? "DROP TO ADD THIS CARD" : canAddAnother ? `YOUR PLAN · ${connectedCards.length} SAVED CARD${connectedCards.length === 1 ? "" : "S"}` : "YOUR PLAN · FULL"}</small>
+    <section className={`atlas-pins ${draggingOver ? "drop-ready" : ""}`} aria-label="Chosen plan cards" onDragOver={(event) => { if (!canAddAnother) return; event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDraggingOver(true); }} onDragLeave={() => setDraggingOver(false)} onDrop={dropRoute}><small>{draggingOver ? "DROP TO ADD THIS CARD" : canAddAnother ? `YOUR PLAN · ${state.priorities.length} PLANNED ITEM${state.priorities.length === 1 ? "" : "S"}` : "YOUR PLAN · FULL"}</small>
       {state.priorities.length ? state.priorities.map((id, index) => {
         const route = routes.find((item) => item.id === id);
         const proofId = ROUTE_PROOF[id];
@@ -526,7 +526,7 @@ function EditorialWorkspace({ state, routes, cvName, onUpload, onReview, onGoal,
   return <section className="clarity-workspace">
     <header className="clarity-hero">
       <motion.div layout><small>SAVED POST <i>→</i> OFFICIAL DOOR <i>→</i> YOUR FUTURE</small><h1>Turn saved posts into <em>a career plan.</em></h1><p>Add a screenshot or link. The agent finds the official rules; you choose the work worth carrying forward.</p></motion.div>
-      <button className="clarity-capture" onClick={onCapture}><span className="clarity-post-mark">POST</span><span><small>YOUR SCRAPBOOK · {state.opportunities.length}/7</small><strong>{state.opportunities.length ? "Review saved posts" : "Add a saved post"}</strong></span><b>＋</b></button>
+      <button className="clarity-capture" onClick={onCapture}><span className="clarity-post-mark">♥</span><span><small>SAVED FOLDER · {state.opportunities.length}/7</small><strong>{state.opportunities.length ? "Open saved activities" : "Add a saved activity"}</strong></span><b>＋</b></button>
     </header>
     <div className="clarity-board">
       <FutureDeck state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} onSelectGoal={onSelectGoal} onAddGoal={onAddGoal} />
@@ -642,7 +642,7 @@ function CaptureModal({ candidates, selectedId, profile, careerGoal, priorities,
     }
     setCopied(didCopy);
   };
-  if (!candidate) return <ModalFrame label="YOUR OPPORTUNITY SCRAPBOOK" title="Save a post. See what it opens." onClose={onClose} className="capture-modal">
+  if (!candidate) return <ModalFrame label="SAVED FOLDER · 0/7" title="Save an activity to this folder" onClose={onClose} className="capture-modal">
     <div className="capture-steps"><span><b>1</b><strong>Save the post</strong><small>Share the screenshot or link you would normally lose in a camera roll.</small></span><i>→</i><span><b>2</b><strong>Check the real source</strong><small>The agent finds the official page, deadline, and rules.</small></span><i>→</i><span><b>3</b><strong>Choose your plan</strong><small>You choose which source-checked cards belong in each future.</small></span></div>
     <div className="capture-prompt"><small>ONE NEXT ACTION · SEND THIS WITH YOUR SCREENSHOT</small><p>“{capturePrompt}”</p><button onClick={copyCapturePrompt}>{copied ? "COPIED ✓" : "COPY MESSAGE"}</button></div>
     <footer><span>Posts are clues. Only official pages set dates and requirements.</span><button onClick={onClose}>DONE</button></footer>
@@ -656,7 +656,7 @@ function CaptureModal({ candidates, selectedId, profile, careerGoal, priorities,
   const fitSignals = opportunityFitSignals(candidate, profile, careerGoal);
   const fitCount = fitSignals.filter((signal) => signal.matched).length;
   const matchedFitLabels = fitSignals.filter((signal) => signal.matched).map((signal) => signal.label.toLowerCase());
-  return <ModalFrame label={`YOUR SCRAPBOOK · ${candidates.length}/7 · BY DEADLINE`} title="Sort your saved opportunities" onClose={onClose} className="capture-modal inbox-modal">
+  return <ModalFrame label={`SAVED FOLDER · ${candidates.length}/7 · BY DEADLINE`} title="Your saved activities" onClose={onClose} className="capture-modal inbox-modal">
     <div className="inbox-layout">
       <nav className="inbox-list" aria-label="Saved opportunities">
         {activityStacks.map((stack) => <section className="inbox-stack" data-category={stack.category} key={stack.category}><header><span>{activityStackLabels[stack.category].label}</span><b>{stack.candidates.length}</b></header><small>{activityStackLabels[stack.category].detail}</small><div>{stack.candidates.map((item) => { const itemReview = reviewOpportunity(item); return <button key={item.id} className={item.id === candidate.id ? "active" : ""} onClick={() => onSelect(item.id)}><small className={itemReview.status}>{itemReview.label}</small><strong>{item.title}</strong><span>DUE · {item.deadlineText}</span></button>; })}</div></section>)}
@@ -912,7 +912,7 @@ export default function FutureDoors() {
 
   return <main className="spatial-shell editorial-shell">
     <AnimatePresence>{introVisible ? <OpeningSequence onDone={dismissIntro} /> : null}</AnimatePresence>
-    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → GOAL</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD VIA CHATGPT{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
+    <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → GOAL</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-saved" aria-label={`Open ${state.opportunities.length} saved activities`} onClick={openCapture}>♥ SAVED {state.opportunities.length}</button><button className="spatial-capture" onClick={startAndCapture}>＋ ADD VIA CHATGPT{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
     {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => { setGoalModalMode("edit"); setModal("goal"); }} onSelectGoal={selectCareerGoal} onAddGoal={() => { setGoalModalMode("add"); setModal("goal"); }} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} nowEpoch={nowEpoch} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}
