@@ -2,6 +2,7 @@
 
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
 import { AnimatedBackground, AnimatedGroup, Spotlight, Tilt } from "@/components/motion-primitives";
 import {
   PATH_START,
@@ -318,6 +319,10 @@ function LaunchScene({ onDemo, onAdd, onTools }: { onDemo: () => void; onAdd: ()
       <small>YOUR SAVED POSTS, TURNED INTO A PLAN</small>
       <h1 id="launch-title">Save the post.<br /><em>Plan what it can become.</em></h1>
       <p>Bring a screenshot or link. The agent checks the official source; you choose the work that can support more than one future.</p>
+      <motion.aside className="clarity-future-guide" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .22, duration: .5 }}>
+        <Image src="/guide/future-guide.png" alt="Future Guide holding a saved opportunity card" width={180} height={180} priority />
+        <span><small>FUTURE GUIDE</small><b>Save it. I&apos;ll find the official details.</b></span>
+      </motion.aside>
       <div className="clarity-launch-actions">
         <button className="primary" onClick={onAdd}>ADD A SCREENSHOT OR LINK <span>→</span></button>
         <button onClick={onDemo}>TRY THE EXAMPLE</button>
