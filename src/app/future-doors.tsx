@@ -353,6 +353,11 @@ const routeCardStyle: Record<RouteId, { category: string; tone: string }> = {
   research: { category: "MENTORED ACTIVITY", tone: "research" },
   ship: { category: "PROJECT", tone: "project" },
 };
+const starterActions = [
+  { id: "case-study", category: "PROJECT", title: "Turn one assignment into a case study", detail: "Make one public artifact people can review.", builds: "Demonstrated skill", tone: "project" },
+  { id: "credential", category: "CREDENTIAL", title: "Prepare one useful credential", detail: "Use a credential only when a target program needs it.", builds: "A verifiable requirement", tone: "credential" },
+  { id: "research", category: "RESEARCH", title: "Ask for one scoped review", detail: "Get one review you can reuse across futures.", builds: "Mentor feedback", tone: "research" },
+] as const;
 type OpportunityCategory = "credential" | "activity" | "research" | "project" | "check";
 const activityStackLabels: Record<OpportunityCategory, { label: string; detail: string }> = {
   credential: { label: "CREDENTIALS", detail: "Exams, certificates, licenses" },
@@ -390,12 +395,16 @@ function opportunityFitSignals(candidate: OpportunityCandidate, profile: Profile
   ];
 }
 
-function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoorsState; routes: Route[]; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void }) {
+function PinProofStage({ state, routes, onToggle, onRoute, onCapture, nowEpoch }: { state: FutureDoorsState; routes: Route[]; onToggle: (id: RouteId) => void; onRoute: (id: RouteId) => void; onCapture: () => void; nowEpoch: number }) {
   const priorities = state.priorities;
   const proposed = new Set(state.priorityProposal.state === "staged" ? state.priorityProposal.routeIds : []);
   const allRoutes = routeDisplayOrder.map((id) => routes.find((item) => item.id === id)).filter((item): item is Route => Boolean(item));
-  const unavailable = allRoutes.find((item) => ["ineligible", "expired", "blocked"].includes(item.nodes[0].status));
+  const unavailable = allRoutes.filter((item) => ["ineligible", "expired", "blocked"].includes(item.nodes[0].status));
   const choices = allRoutes.filter((item) => !["ineligible", "expired", "blocked"].includes(item.nodes[0].status)).slice(0, 3);
+  const latestClosure = state.activity.find((entry) => entry.label === "Opportunity missed in try-out" || entry.label === "Path clock moved")?.timestamp;
+  const closureAge = latestClosure ? nowEpoch - new Date(latestClosure).getTime() : Number.POSITIVE_INFINITY;
+  const recentlyClosed = unavailable.filter((item) => item.nodes[0].status === "expired" && closureAge >= 0 && closureAge <= 7 * 24 * 60 * 60 * 1000);
+  const needsAnotherWay = unavailable.filter((item) => item.nodes[0].status !== "expired");
 
   return <section className="atlas-choice-deck" aria-label="Choose source-checked work for your plan">
     <header className="atlas-deck-heading"><span><small>02 · CHECKED OPTIONS</small><h2>Choose work that moves this future forward.</h2></span><b>{priorities.length} of {maxPriorities} selected</b></header>
@@ -429,8 +438,15 @@ function PinProofStage({ state, routes, onToggle, onRoute }: { state: FutureDoor
           <button className="atlas-pin" disabled={atLimit} onClick={() => onToggle(item.id)}>{pinned ? "In plan" : atLimit ? "Plan full" : "Add to plan"}</button>
         </article>;
       })}
+      <section className="atlas-starter-actions" aria-label="Starter activities to consider">
+        <header><span>MORE WAYS TO BUILD</span><small>Start any time · add an official source when one matters</small></header>
+        <div>{starterActions.map((action) => <article className={`atlas-starter-card tone-${action.tone}`} key={action.id}><span className="atlas-starter-mark" aria-hidden="true" /><div><small>{action.category}</small><strong>{action.title}</strong><p>{action.detail}</p></div><aside><small>CAN BUILD</small><b>{action.builds}</b><button onClick={onCapture}>FIND A POST</button></aside></article>)}</div>
+      </section>
     </div>
-    {unavailable ? <a className="atlas-closed-door" href={unavailable.nodes[0].sourceUrl} target="_blank" rel="noreferrer"><span className="atlas-closed-mark" aria-hidden="true">×</span><span><b>One saved door is closed right now</b><small>{displayNodeTitle(unavailable.nodes[0])} · see the official rule</small></span><i>↗</i></a> : null}
+    {recentlyClosed.length || needsAnotherWay.length ? <section className="atlas-not-ready" aria-label="Recently closed or not-ready opportunities">
+      {recentlyClosed.map((item) => <a className="atlas-recently-closed" href={item.nodes[0].sourceUrl} target="_blank" rel="noreferrer" key={item.id}><span aria-hidden="true">×</span><div><small>RECENTLY CLOSED · HIDDEN AFTER 7 DAYS</small><b>{displayNodeTitle(item.nodes[0])}</b></div><i>↗</i></a>)}
+      {needsAnotherWay.map((item) => <article className="atlas-muted-door" key={item.id}><span aria-hidden="true">○</span><div><small>{item.nodes[0].status === "ineligible" ? "DOES NOT MATCH THIS PROFILE" : "NEEDS A FIRST STEP"}</small><b>{displayNodeTitle(item.nodes[0])}</b><p>{item.nodes[0].status === "ineligible" ? "Keep the career goal. Find a source with rules that match you." : item.nodes[0].evidence[0] ?? "Find the missing first step before adding this."}</p></div><button onClick={onCapture}>{item.nodes[0].status === "ineligible" ? "FIND A MATCH" : "ADD THE FIRST STEP"}</button></article>)}
+    </section> : null}
     <footer>The agent checks the source. You choose what belongs in your plan.</footer>
   </section>;
 }
@@ -506,7 +522,7 @@ function PlanDeck({ state, routes, onRoute, onTogglePriority, onProof, onDropRou
   </aside>;
 }
 
-function EditorialWorkspace({ state, routes, cvName, onUpload, onReview, onGoal, onSelectGoal, onAddGoal, onRoute, onTogglePriority, onProof, onCapture }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onAddGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void }) {
+function EditorialWorkspace({ state, routes, cvName, onUpload, onReview, onGoal, onSelectGoal, onAddGoal, onRoute, onTogglePriority, onProof, onCapture, nowEpoch }: { state: FutureDoorsState; route: Route; routes: Route[]; selectedNode: PathNode; cvName: string; onUpload: (file: File) => void; onReview: () => void; onGoal: () => void; onSelectGoal: (id: string) => void; onAddGoal: () => void; onRoute: (id: RouteId) => void; onTogglePriority: (id: RouteId) => void; onNode: (node: PathNode) => void; onProof: (proofId: ProofId) => void; onTake: () => void; onMiss: () => void; onRepair: () => void; onReset: () => void; onWhy: () => void; onTools: () => void; onCapture: () => void; nowEpoch: number }) {
   return <section className="clarity-workspace">
     <header className="clarity-hero">
       <motion.div layout><small>SAVED POST <i>→</i> OFFICIAL DOOR <i>→</i> YOUR FUTURE</small><h1>Turn saved posts into <em>a career plan.</em></h1><p>Add a screenshot or link. The agent finds the official rules; you choose the work worth carrying forward.</p></motion.div>
@@ -514,7 +530,7 @@ function EditorialWorkspace({ state, routes, cvName, onUpload, onReview, onGoal,
     </header>
     <div className="clarity-board">
       <FutureDeck state={state} cvName={cvName} onUpload={onUpload} onReview={onReview} onGoal={onGoal} onSelectGoal={onSelectGoal} onAddGoal={onAddGoal} />
-      <PinProofStage state={state} routes={routes} onToggle={onTogglePriority} onRoute={onRoute} />
+      <PinProofStage state={state} routes={routes} onToggle={onTogglePriority} onRoute={onRoute} onCapture={onCapture} nowEpoch={nowEpoch} />
       <PlanDeck state={state} routes={routes} onRoute={onRoute} onTogglePriority={onTogglePriority} onProof={onProof} onDropRoute={(routeId) => { if (!state.priorities.includes(routeId)) onTogglePriority(routeId); }} />
     </div>
   </section>;
@@ -716,6 +732,7 @@ function ToolsModal({ status, onClose }: { status: string; onClose: () => void }
 
 export default function FutureDoors() {
   const [state, setState] = useState<FutureDoorsState>(() => cloneInitialState());
+  const [nowEpoch] = useState(() => Date.now());
   const [hydrated, setHydrated] = useState(false);
   const [modal, setModal] = useState<Modal>(null);
   const [goalModalMode, setGoalModalMode] = useState<"edit" | "add">("edit");
@@ -896,7 +913,7 @@ export default function FutureDoors() {
   return <main className="spatial-shell editorial-shell">
     <AnimatePresence>{introVisible ? <OpeningSequence onDone={dismissIntro} /> : null}</AnimatePresence>
     <header className="spatial-topbar editorial-topbar"><div className="spatial-brand"><span className="brand-icon"><i /></span><strong>FUTURE DOORS</strong><small>OPPORTUNITY → ACTION → GOAL</small></div><div className="spatial-agent"><span className={`capability-dot ${webMcpStatus}`} /><b>AGENT CHECKS · YOU APPROVE</b></div><nav><button className="spatial-capture" onClick={startAndCapture}>＋ ADD VIA CHATGPT{state.opportunities.length ? ` · ${state.opportunities.length}/7` : ""}</button><button onClick={() => setModal("tools")}>HOW IT WORKS</button></nav></header>
-    {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => { setGoalModalMode("edit"); setModal("goal"); }} onSelectGoal={selectCareerGoal} onAddGoal={() => { setGoalModalMode("add"); setModal("goal"); }} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
+    {started ? <EditorialWorkspace state={state} route={route} routes={routes} selectedNode={selectedNode} cvName={cvName} onUpload={uploadCv} onReview={() => { setProposedProfile(null); setModal("profile"); }} onGoal={() => { setGoalModalMode("edit"); setModal("goal"); }} onSelectGoal={selectCareerGoal} onAddGoal={() => { setGoalModalMode("add"); setModal("goal"); }} onRoute={(id) => selectRoute(id)} onTogglePriority={togglePriority} onNode={(node) => selectNode(node.id)} onProof={(proofId) => { setSelectedProofId(proofId); setModal("proof"); }} onTake={() => simulateTake()} onMiss={() => simulateMiss()} onRepair={stageDefaultBridge} onReset={() => reset()} onWhy={() => setModal("why")} onTools={() => setModal("tools")} onCapture={openCapture} nowEpoch={nowEpoch} /> : <LaunchScene onDemo={() => setStarted(true)} onAdd={startAndCapture} onTools={() => setModal("tools")} />}
     <AnimatePresence>
       {modal === "profile" ? <ProfileModal profile={proposedProfile ?? state.profile} cvName={cvName} proposed={Boolean(proposedProfile)} onSave={saveProfile} onClose={() => { setProposedProfile(null); setModal(null); }} /> : null}
       {modal === "goal" ? <GoalModal profile={state.profile} careerGoal={state.goals.find((goal) => goal.id === state.selectedGoalId)} mode={goalModalMode} onSave={goalModalMode === "add" ? addCareerGoal : saveGoal} onClose={() => setModal(null)} /> : null}
